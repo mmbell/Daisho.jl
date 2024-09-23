@@ -1,0 +1,93 @@
+# Quality Control functions
+
+function fix_SEAPOL_RHOHV!(volume, moment_dict)
+
+    # SEAPOL RHOHV has artificially high RHOHV due to noise subtraction
+    # have to get original RHOHV from this variable
+    # per Brenda J: LROSE adds bias of 128 to field, then shifts by -32768
+    # need to add 32640 to field to return to original values (10.19.22)
+    # diff from Brody's original SEA-POL code (LROSE conversion difference)
+    volume.moments[:,moment_dict["RHOHV"]] .= volume.moments[:,moment_dict["UNKNOWN_ID_82"]]
+    volume.moments[:,moment_dict["RHOHV"]] .+= 32640
+    volume.moments[:,moment_dict["RHOHV"]] .= (volume.moments[:,moment_dict["RHOHV"]].-1) ./65533.0
+
+end
+
+function threshold_qc(raw_moments, raw_moment_dict, qc_moments, qc_moment_dict,
+    sqi_threshold, snr_threshold, rhohv_threshold, spec_width_threshold)
+
+    # Probably faster/better to do a logical indexing mask by gate 
+    # rather than looping through all of these keys to do the same thing
+    for key in keys(qc_moment_dict)
+        
+        if key == "SQI"
+            # Don't QC this field
+            continue
+        end
+
+        # Less than for SQI, SNR, RHOHV
+        qc_moments[:,qc_moment_dict[key]] = ifelse.(isless.(raw_moments[:,raw_moment_dict["SQI"]],sqi_threshold),
+            missing, qc_moments[:,qc_moment_dict[key]])
+        qc_moments[:,qc_moment_dict[key]] = ifelse.(isless.(raw_moments[:,raw_moment_dict["SNR"]],snr_threshold),
+            missing, qc_moments[:,qc_moment_dict[key]])
+        qc_moments[:,qc_moment_dict[key]] = ifelse.(isless.(raw_moments[:,raw_moment_dict["RHOHV"]],rhohv_threshold),
+            missing, qc_moments[:,qc_moment_dict[key]])
+
+        # Greater than for spectrum width
+        qc_moments[:,qc_moment_dict[key]] = ifelse.(isless.(raw_moments[:,raw_moment_dict["WIDTH"]],spec_width_threshold),
+            qc_moments[:,qc_moment_dict[key]], missing)
+
+    end
+
+    return qc_moments
+
+end
+
+function smooth_sqi(sqi)
+
+    # Smooth the SQI with a Gaussian kernel
+    # This function helps to remove second trip echo
+    
+    
+end
+
+function despeckle(speckle, moments, moment_dict, n_gates, n_rays)
+
+    # Despeckle a volume of data
+    0 < speckle || error("Speckle definition must be greater than 0")
+    n_moments = length(moment_dict)
+    for m in 1:n_moments
+        moment_data = reshape(moments[m,:],n_gates,n_rays)
+        for i in 1:n_rays
+            raydata = moment_data[:,i]
+            n = 1
+            while n < n_gates
+                if !ismissing(raydata[n])
+                    # Found a good gate, go forward to look for missing
+                    feature_size = 0
+                    s = n
+                    while (n < n_gates) && !ismissing(raydata[n])
+                        n += 1
+                        feature_size += 1
+                    end
+                    
+                    if feature_size > speckle
+                        # Feature is larger than a speckle
+                        continue
+                    end
+                    
+                    while (s < n_gates) && (s <= n)
+                        moment_data[s,i] = missing
+                        s += 1
+                    end
+                else
+                    n += 1
+                end
+            end
+        end
+        moments[m,:] .= moment_data[:]
+    end
+
+    return moments
+    
+end
