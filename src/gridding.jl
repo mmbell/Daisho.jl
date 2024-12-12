@@ -236,10 +236,10 @@ function grid_volume(reference_latitude::AbstractFloat, reference_longitude::Abs
         if !isempty(gates)
 
             # Found some gates that are within range horizontally
-            for j in 1:zdim
+            for j in 1:size(gridpoints,1)
 
                 # First check to see whether at least one gate is in range vertically
-                grid_z = zmin + (j-1)*zincr
+                grid_z = gridpoints[j,i,1]
                 min_dist, min_idx = findmin(z -> abs(z - grid_z), beams[gates,4])
                 if min_dist > eff_v_radius_influence
                     # There is no gate in range of this grid box
@@ -395,10 +395,10 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
         if !isempty(gates)
 
             # Found some gates that are within range horizontally
-            for j in 1:zdim
+            for j in 1:size(gridpoints,1)
 
                 # First check to see whether at least one gate is in range vertically
-                grid_z = zmin + (j-1)*zincr
+                grid_z = gridpoints[j,i,1]
                 min_dist, min_idx = findmin(z -> abs(z - grid_z), beams[gates,4])
                 if min_dist > eff_v_radius_influence
                     # There is no gate in range of this grid box
@@ -1112,4 +1112,26 @@ function read_gridded_ppi(file, moment_dict)
     end
 
     return x, y, lat, lon, start_time, stop_time, radardata
+end
+
+function read_gridded_rhi(file, moment_dict)
+
+    inputds = Dataset(file);
+
+    R = inputds["R"]
+    Z = inputds["Z"]
+    lon = inputds["longitude"]    
+    lat = inputds["latitude"]
+    start_time = inputds["start_time"]
+    stop_time = inputds["stop_time"]
+    
+    # Store radar data
+    n_moments = length(moment_dict)
+    n_points = length(R)*length(Z)
+    radardata = Array{Union{Missing, Float32}}(undef,n_moments,n_points)
+    for key in keys(moment_dict)
+        radardata[moment_dict[key],:] = inputds[key][:]
+    end
+
+    return R, Z, lat, lon, start_time, stop_time, radardata
 end
