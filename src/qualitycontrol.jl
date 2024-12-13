@@ -20,7 +20,7 @@ function threshold_qc(raw_moments, raw_moment_dict, qc_moments, qc_moment_dict,
     # rather than looping through all of these keys to do the same thing
     for key in keys(qc_moment_dict)
         
-        if key == "SQI"
+        if key == "SQI" || key == "PHIDP"
             # Don't QC this field
             continue
         end
@@ -57,7 +57,7 @@ function despeckle(speckle, moments, moment_dict, n_gates, n_rays)
     0 < speckle || error("Speckle definition must be greater than 0")
     n_moments = length(moment_dict)
     for m in 1:n_moments
-        moment_data = reshape(moments[m,:],n_gates,n_rays)
+        moment_data = reshape(moments[:,m],n_gates,n_rays)
         for i in 1:n_rays
             raydata = moment_data[:,i]
             n = 1
@@ -85,9 +85,37 @@ function despeckle(speckle, moments, moment_dict, n_gates, n_rays)
                 end
             end
         end
-        moments[m,:] .= moment_data[:]
+        moments[:,m] .= moment_data[:]
     end
 
     return moments
     
+end
+
+function stddev_phidp_threshold(moments, moment_dict, n_gates, n_rays, window = 11, threshold = 12)
+
+    # Use a standard deviation of phidp to threshold
+    0 < window || error("Window definition must be greater than 0")
+    window % 2 == 1 || error("Window must be an odd number")
+    window = Int((window - 1)/2)
+    phidp = ifelse.(isless.(moments[:,moment_dict["PHIDP"]],0.0), moments[:,moment_dict["PHIDP"]].+360.0, moments[:,moment_dict["PHIDP"]])
+    phidp = reshape(phidp,n_gates,n_rays)
+    phidp_mask = falses(size(phidp))
+    for i in 1:n_rays
+        raydata = phidp[:,i]
+        for n = 1:n_gates
+            stddev = std(raydata[max(n-window,1):min(n+window,n_gates)])
+            if isless(threshold, stddev)
+                phidp_mask[n,i] = true
+            end
+        end
+    end
+
+    # Apply the mask
+    for m in 1:length(moment_dict)
+        moments[phidp_mask[:],m] .= missing
+    end
+
+    return moments
+
 end
