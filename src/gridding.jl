@@ -689,7 +689,9 @@ function grid_composite(reference_latitude::AbstractFloat, reference_longitude::
     
                 # Divide by the total weight for that gridbox
                 for m in 1:n_moments
-                    radar_grid[m,i] = radar_volume.moments[gates[valid_gates][max_idx],m]
+                    if !ismissing(radar_volume.moments[gates[valid_gates][max_idx],m])
+                        radar_grid[m,i] = radar_volume.moments[gates[valid_gates][max_idx],m]
+                    end
                 end # End of moment loop
             end # End of valid gates test
         end # End of gate empty test
