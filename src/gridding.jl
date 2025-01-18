@@ -551,9 +551,14 @@ function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::Abstra
         if !isempty(gates)
 
             # Found some gates that are within range horizontally
-            # There is at least one gate in range so set the flags to -9999
-            for m in 1:n_moments
-                radar_grid[m,i] = -9999.0
+            valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict["SQI"]])))
+            if !isempty(valid_gates)
+                # There is at least one gate in range so set the flags to -9999
+                for m in 1:n_moments
+                    radar_grid[m,i] = -9999.0
+                end
+            else
+                continue
             end
 
             # Loops through the nearby gates with valid data
@@ -677,9 +682,14 @@ function grid_composite(reference_latitude::AbstractFloat, reference_longitude::
         if !isempty(gates)
 
             # Found some gates that are within range horizontally
-            # There is at least one gate in range so set the flags to -9999
-            for m in 1:n_moments
-                radar_grid[m,i] = -9999.0
+            valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict["SQI"]])))
+            if !isempty(valid_gates)
+                # There is at least one gate in range so set the flags to -9999
+                for m in 1:n_moments
+                    radar_grid[m,i] = -9999.0
+                end
+            else
+                continue
             end
 
             # Loops through the nearby gates with valid data
