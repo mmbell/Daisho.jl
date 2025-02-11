@@ -150,7 +150,7 @@ function grid_radar_rhi(radar_volume, moment_dict, output_file,
 end
 
 function grid_radar_ppi(radar_volume, moment_dict, output_file,
-        xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation)
+        xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation, missing_key="SQI", valid_key="DBZ")
 
     # Set the reference to the first location in the volume, but could be a parameter
     reference_latitude = radar_volume.latitude[1]
@@ -163,7 +163,7 @@ function grid_radar_ppi(radar_volume, moment_dict, output_file,
     h_roi = xincr * 0.75
     
     radar_grid, latlon_grid = grid_ppi(reference_latitude, reference_longitude, gridpoints, 
-        radar_volume, moment_dict, h_roi, beam_inflation)
+        radar_volume, moment_dict, h_roi, beam_inflation, missing_key, valid_key)
 
     write_gridded_radar_ppi(output_file, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
@@ -511,7 +511,8 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
 end
 
 function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray, 
-        radar_volume::radar, moment_dict::Dict, horizontal_roi::Float64, beam_inflation::Float64)
+        radar_volume::radar, moment_dict::Dict, horizontal_roi::Float64, beam_inflation::Float64, 
+        missing_key::String="SQI", valid_key::String="DBZ")
 
     # Convert the relevant radar information to arrays
     TM = CoordRefSystems.shift(TransverseMercator{1.0,reference_latitude,WGS84Latest}, lonₒ= reference_longitude)
@@ -551,7 +552,7 @@ function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::Abstra
         if !isempty(gates)
 
             # Found some gates that are within range horizontally
-            valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict["SQI"]])))
+            valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict[missing_key]])))
             if !isempty(valid_gates)
                 # There is at least one gate in range so set the flags to -9999
                 for m in 1:n_moments
@@ -562,7 +563,7 @@ function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::Abstra
             end
 
             # Loops through the nearby gates with valid data
-            valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict["DBZ"]])))
+            valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict[valid_key]])))
             for gate in gates[valid_gates]
 
                 # Calculate the effective azimuth

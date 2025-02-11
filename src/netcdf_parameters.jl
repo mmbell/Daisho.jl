@@ -63,6 +63,18 @@ snr_attrib = OrderedDict(
         "units"                     => "dB",
     )
 
+rainrate_attrib = OrderedDict(
+    "standard_name"             => "RAINRATE",
+    "long_name"                 => "CSU Blended hybrid rainrate",
+    "units"                     => "mm/hr",
+)
+
+pid_attrib = OrderedDict(
+    "standard_name"             => "PID",
+    "long_name"                 => "particle_id",
+    "units"                     => "none",
+)
+
 # Level 1 variables
 dbz_l1_attrib = OrderedDict(
         "standard_name"             => "DBZ_L1",
@@ -115,12 +127,12 @@ variable_attrib_dict["WIDTH"] = width_attrib
 variable_attrib_dict["VEL"] = vel_attrib
 variable_attrib_dict["PHIDP"] = phidp_attrib
 variable_attrib_dict["SNR"] = snr_attrib
-variable_attrib_dict["SQI"] = dbz_attrib
+variable_attrib_dict["SQI"] = sqi_attrib
 variable_attrib_dict["DBZ_L1"] = dbz_l1_attrib
 variable_attrib_dict["ZDR_L1"] = zdr_l1_attrib
 variable_attrib_dict["RHOHV_L1"] = rhohv_l1_attrib
 variable_attrib_dict["KDP_L1"] = kdp_l1_attrib
 variable_attrib_dict["WIDTH_L1"] = width_l1_attrib
 variable_attrib_dict["VEL_L1"] = vel_l1_attrib
-
-
+variable_attrib_dict["RATE_CSU_BLENDED"] = rainrate_attrib
+variable_attrib_dict["PID"] = pid_attrib
