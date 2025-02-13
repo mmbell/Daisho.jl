@@ -103,8 +103,9 @@ function appx_inverse_projection(reference_latitude::AbstractFloat, reference_lo
 
 end
 
-function grid_radar_volume(radar_volume, moment_dict, output_file,
-        xmin, xincr, xdim, ymin, yincr, ydim, zmin, zincr, zdim, beam_inflation)
+function grid_radar_volume(radar_volume, moment_dict, grid_type_dict, output_file,
+        xmin, xincr, xdim, ymin, yincr, ydim, zmin, zincr, zdim, beam_inflation, power_threshold,
+        missing_key="SQI", valid_key="DBZ")
 
     # Set the reference to the first location in the volume, but could be a parameter
     reference_latitude = radar_volume.latitude[1]
@@ -118,7 +119,8 @@ function grid_radar_volume(radar_volume, moment_dict, output_file,
     v_roi = zincr * 0.75
     
     radar_grid, latlon_grid = grid_volume(reference_latitude, reference_longitude, gridpoints, 
-        radar_volume, moment_dict, h_roi, v_roi, beam_inflation)
+        radar_volume, moment_dict, grid_type_dict, h_roi, v_roi, beam_inflation, power_threshold,
+        missing_key="SQI", valid_key="DBZ")
 
     write_gridded_radar_volume(output_file, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
@@ -126,8 +128,9 @@ function grid_radar_volume(radar_volume, moment_dict, output_file,
     
 end
 
-function grid_radar_rhi(radar_volume, moment_dict, output_file,
-        rmin, rincr, rdim, rhi_zmin, rhi_zincr, rhi_zdim, beam_inflation)
+function grid_radar_rhi(radar_volume, moment_dict, grid_type_dict, output_file,
+        rmin, rincr, rdim, rhi_zmin, rhi_zincr, rhi_zdim, beam_inflation, power_threshold,
+        missing_key::String="SQI", valid_key::String="DBZ")
 
     # Set the reference to the first location in the volume, but could be a parameter
     reference_latitude = radar_volume.latitude[1]
@@ -141,7 +144,7 @@ function grid_radar_rhi(radar_volume, moment_dict, output_file,
     v_roi = rhi_zincr * 0.75
     
     radar_grid, latlon_grid = grid_rhi(reference_latitude, reference_longitude, gridpoints, 
-        radar_volume, moment_dict, h_roi, v_roi, beam_inflation)
+        radar_volume, moment_dict, grid_type_dict, h_roi, v_roi, beam_inflation, power_threshold, missing_key, valid_key)
 
     write_gridded_radar_rhi(output_file, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
@@ -149,8 +152,9 @@ function grid_radar_rhi(radar_volume, moment_dict, output_file,
     
 end
 
-function grid_radar_ppi(radar_volume, moment_dict, output_file,
-        xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation, missing_key="SQI", valid_key="DBZ")
+function grid_radar_ppi(radar_volume, moment_dict, grid_type_dict, output_file,
+        xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation, power_threshold,
+        missing_key="SQI", valid_key="DBZ")
 
     # Set the reference to the first location in the volume, but could be a parameter
     reference_latitude = radar_volume.latitude[1]
@@ -163,7 +167,7 @@ function grid_radar_ppi(radar_volume, moment_dict, output_file,
     h_roi = xincr * 0.75
     
     radar_grid, latlon_grid = grid_ppi(reference_latitude, reference_longitude, gridpoints, 
-        radar_volume, moment_dict, h_roi, beam_inflation, missing_key, valid_key)
+        radar_volume, moment_dict, grid_type_dict, h_roi, beam_inflation, power_threshold, missing_key, valid_key)
 
     write_gridded_radar_ppi(output_file, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
@@ -171,8 +175,9 @@ function grid_radar_ppi(radar_volume, moment_dict, output_file,
     
 end
 
-function grid_radar_composite(radar_volume, moment_dict, output_file,
-        xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation)
+function grid_radar_composite(radar_volume, moment_dict, grid_type_dict, output_file,
+        xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation,
+        missing_key="SQI", valid_key="DBZ")
 
     # Set the reference to the first location in the volume, but could be a parameter
     reference_latitude = radar_volume.latitude[1]
@@ -185,7 +190,7 @@ function grid_radar_composite(radar_volume, moment_dict, output_file,
     h_roi = xincr * 0.75
     
     radar_grid, latlon_grid = grid_composite(reference_latitude, reference_longitude, gridpoints, 
-        radar_volume, moment_dict, h_roi, beam_inflation)
+        radar_volume, moment_dict, grid_type_dict, h_roi, beam_inflation, missing_key, valid_key)
 
     write_gridded_radar_ppi(output_file, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
@@ -194,7 +199,8 @@ function grid_radar_composite(radar_volume, moment_dict, output_file,
 end
 
 function grid_volume(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray, 
-        radar_volume::radar, moment_dict::Dict, horizontal_roi::Float64, vertical_roi::Float64, beam_inflation::Float64)
+        radar_volume::radar, moment_dict::Dict, grid_type_dict::Dict, horizontal_roi::Float64, vertical_roi::Float64, beam_inflation::Float64,
+        power_threshold::Float64, missing_key::String="SQI", valid_key::String="DBZ")
 
     # Convert the relevant radar information to arrays
     TM = CoordRefSystems.shift(TransverseMercator{1.0,reference_latitude,WGS84Latest}, lonₒ= reference_longitude)
@@ -245,7 +251,7 @@ function grid_volume(reference_latitude::AbstractFloat, reference_longitude::Abs
                     # There is no gate in range of this grid box
                     continue
                 else
-                    if !ismissing(radar_volume.moments[gates[min_idx], moment_dict["SQI"]])
+                    if !ismissing(radar_volume.moments[gates[min_idx], moment_dict[missing_key]])
                         # There is at least one gate in range so set the flags to -9999
                         for m in 1:n_moments
                             radar_grid[m,j,i] = -9999.0
@@ -254,7 +260,7 @@ function grid_volume(reference_latitude::AbstractFloat, reference_longitude::Abs
                 end
 
                 # Loops through the nearby gates with valid data
-                valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict["DBZ"]])))
+                valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict[valid_key]])))
                 for gate in gates[valid_gates]
                     
                     # Calculate the beam intercept to the gridpoint
@@ -292,7 +298,7 @@ function grid_volume(reference_latitude::AbstractFloat, reference_longitude::Abs
                     # 79.43 = ln(0.5) / (0.5 deg * pi / 180.0)
                     # Center of beam = 1.0 angle_weight
                     angle_weight = exp(-angle_diff * 79.43)
-                    if angle_weight < 0.25
+                    if angle_weight < power_threshold
                         angle_weight = 0
                     end
     
@@ -312,13 +318,19 @@ function grid_volume(reference_latitude::AbstractFloat, reference_longitude::Abs
                             end
 
                             if !ismissing(radar_volume.moments[gate,m])
-                                if moment_dict["DBZ"] == m || moment_dict["ZDR"] == m
+                                if grid_type_dict[m] == :linear
                                     linear_z = 10.0 ^ (radar_volume.moments[gate,m] / 10.0)
                                     radar_grid[m,j,i] += total_weight * linear_z
+                                    weights[m,j,i] += total_weight
+                                elseif grid_type_dict[m] == :nearest
+                                    if total_weight > weights[m,j,i]
+                                        radar_grid[m,j,i] = radar_volume.moments[gate,m]
+                                        weights[m,j,i] = total_weight
+                                    end
                                 else
                                     radar_grid[m,j,i] += total_weight * radar_volume.moments[gate,m]
+                                    weights[m,j,i] += total_weight
                                 end
-                                weights[m,j,i] += total_weight
                             end
                         end
                     end
@@ -327,16 +339,16 @@ function grid_volume(reference_latitude::AbstractFloat, reference_longitude::Abs
 
                 # Divide by the total weight for that gridbox
                 for m in 1:n_moments
-                    if weights[m,j,i] > 0.0
+                    if weights[m,j,i] > 0.0 && grid_type_dict[m] != :nearest
                         radar_grid[m,j,i] /= weights[m,j,i]
-                        if moment_dict["DBZ"] == m || moment_dict["ZDR"] == m
+                        if grid_type_dict[m] == :linear
                             if radar_grid[m,j,i] > 0.0
                                 radar_grid[m,j,i] = 10.0 * log10(radar_grid[m,j,i])
                             else
                                 radar_grid[m,j,i] = -9999.0
                             end
                         end
-                    else
+                    elseif weights[m,j,i] == 0.0
                         if radar_grid[m,j,i] == 0.0
                             # Use a different flag to indicate data has been QCed out
                             radar_grid[m,j,i] = -9999.0
@@ -353,7 +365,8 @@ function grid_volume(reference_latitude::AbstractFloat, reference_longitude::Abs
 end
 
 function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray, 
-        radar_volume::radar, moment_dict::Dict, horizontal_roi::Float64, vertical_roi::Float64, beam_inflation::Float64)
+        radar_volume::radar, moment_dict::Dict, grid_type_dict::Dict, horizontal_roi::Float64, vertical_roi::Float64, beam_inflation::Float64,
+        power_threshold::Float64, missing_key::String="SQI", valid_key::String="DBZ")
 
     # Convert the relevant radar information to arrays
     TM = CoordRefSystems.shift(TransverseMercator{1.0,reference_latitude,WGS84Latest}, lonₒ= reference_longitude)
@@ -404,7 +417,7 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
                     # There is no gate in range of this grid box
                     continue
                 else
-                    if !ismissing(radar_volume.moments[gates[min_idx], moment_dict["SQI"]])
+                    if !ismissing(radar_volume.moments[gates[min_idx], moment_dict[missing_key]])
                         # There is at least one gate in range so set the flags to -9999
                         for m in 1:n_moments
                             radar_grid[m,j,i] = -9999.0
@@ -413,7 +426,7 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
                 end
 
                 # Loops through the nearby gates with valid data
-                valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict["DBZ"]])))
+                valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict[valid_key]])))
                 for gate in gates[valid_gates]
                     
                     # Calculate the beam intercept to the gridpoint
@@ -450,7 +463,7 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
                     # 79.43 = ln(0.5) / (0.5 deg * pi / 180.0)
                     # Center of beam = 1.0 angle_weight
                     angle_weight = exp(-angle_diff * 79.43)
-                    if angle_weight < 0.25
+                    if angle_weight < power_threshold
                         angle_weight = 0
                     end
     
@@ -470,13 +483,19 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
                             end
 
                             if !ismissing(radar_volume.moments[gate,m])
-                                if moment_dict["DBZ"] == m || moment_dict["ZDR"] == m
+                                if grid_type_dict[m] == :linear
                                     linear_z = 10.0 ^ (radar_volume.moments[gate,m] / 10.0)
                                     radar_grid[m,j,i] += total_weight * linear_z
+                                    weights[m,j,i] += total_weight
+                                elseif grid_type_dict[m] == :nearest
+                                    if total_weight > weights[m,j,i]
+                                        radar_grid[m,j,i] = radar_volume.moments[gate,m]
+                                        weights[m,j,i] = total_weight
+                                    end
                                 else
                                     radar_grid[m,j,i] += total_weight * radar_volume.moments[gate,m]
+                                    weights[m,j,i] += total_weight
                                 end
-                                weights[m,j,i] += total_weight
                             end
                         end
                     end
@@ -485,16 +504,16 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
 
                 # Divide by the total weight for that gridbox
                 for m in 1:n_moments
-                    if weights[m,j,i] > 0.0
+                    if weights[m,j,i] > 0.0 && grid_type_dict[m] != :nearest
                         radar_grid[m,j,i] /= weights[m,j,i]
-                        if moment_dict["DBZ"] == m || moment_dict["ZDR"] == m
+                        if grid_type_dict[m] == :linear
                             if radar_grid[m,j,i] > 0.0
                                 radar_grid[m,j,i] = 10.0 * log10(radar_grid[m,j,i])
                             else
                                 radar_grid[m,j,i] = -9999.0
                             end
                         end
-                    else
+                    elseif weights[m,j,i] == 0.0
                         if radar_grid[m,j,i] == 0.0
                             # Use a different flag to indicate data has been QCed out
                             radar_grid[m,j,i] = -9999.0
@@ -511,8 +530,8 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
 end
 
 function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray, 
-        radar_volume::radar, moment_dict::Dict, horizontal_roi::Float64, beam_inflation::Float64, 
-        missing_key::String="SQI", valid_key::String="DBZ")
+        radar_volume::radar, moment_dict::Dict, grid_type_dict::Dict, horizontal_roi::Float64, beam_inflation::Float64, 
+        power_threshold::Float64, missing_key::String="SQI", valid_key::String="DBZ")
 
     # Convert the relevant radar information to arrays
     TM = CoordRefSystems.shift(TransverseMercator{1.0,reference_latitude,WGS84Latest}, lonₒ= reference_longitude)
@@ -582,7 +601,7 @@ function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::Abstra
                 # 79.43 = ln(0.5) / (0.5 deg * pi / 180.0)
                 # Center of beam = 1.0 angle_weight
                 angle_weight = exp(-angle_diff * 79.43)
-                if angle_weight < 0.25
+                if angle_weight < power_threshold
                     angle_weight = 0
                 end
 
@@ -603,13 +622,19 @@ function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::Abstra
                         end
 
                         if !ismissing(radar_volume.moments[gate,m])
-                            if moment_dict["DBZ"] == m || moment_dict["ZDR"] == m
+                            if grid_type_dict[m] == :linear
                                 linear_z = 10.0 ^ (radar_volume.moments[gate,m] / 10.0)
                                 radar_grid[m,i] += total_weight * linear_z
+                                weights[m,i] += total_weight
+                            elseif grid_type_dict[m] == :nearest
+                                if total_weight > weights[m,i]
+                                    radar_grid[m,i] = radar_volume.moments[gate,m]
+                                    weights[m,i] = total_weight
+                                end
                             else
                                 radar_grid[m,i] += total_weight * radar_volume.moments[gate,m]
+                                weights[m,i] += total_weight
                             end
-                            weights[m,i] += total_weight
                         end
                     end
                 end
@@ -618,23 +643,22 @@ function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::Abstra
 
             # Divide by the total weight for that gridbox
             for m in 1:n_moments
-                if weights[m,i] > 0.0
+                if weights[m,i] > 0.0 && grid_type_dict[m] != :nearest
                     radar_grid[m,i] /= weights[m,i]
-                    if moment_dict["DBZ"] == m || moment_dict["ZDR"] == m
+                    if grid_type_dict[m] == :linear
                         if radar_grid[m,i] > 0.0
                             radar_grid[m,i] = 10.0 * log10(radar_grid[m,i])
                         else
                             radar_grid[m,i] = -9999.0
                         end
                     end
-                else
+                elseif weights[m,i] == 0.0
                     if radar_grid[m,i] == 0.0
                         # Use a different flag to indicate data has been QCed out
                         radar_grid[m,i] = -9999.0
                     end
                 end
             end # End of moment loop
-
         end # End of gate empty test
     end # End of horizontal loop
 
@@ -643,7 +667,8 @@ function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::Abstra
 end
 
 function grid_composite(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray, 
-        radar_volume::radar, moment_dict::Dict, horizontal_roi::Float64, beam_inflation::Float64)
+        radar_volume::radar, moment_dict::Dict, grid_type_dict::Dict, horizontal_roi::Float64, beam_inflation::Float64,
+        missing_key::String="SQI", valid_key::String="DBZ")
     
     # Convert the relevant radar information to arrays
     TM = CoordRefSystems.shift(TransverseMercator{1.0,reference_latitude,WGS84Latest}, lonₒ= reference_longitude)
@@ -683,7 +708,7 @@ function grid_composite(reference_latitude::AbstractFloat, reference_longitude::
         if !isempty(gates)
 
             # Found some gates that are within range horizontally
-            valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict["SQI"]])))
+            valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict[missing_key]])))
             if !isempty(valid_gates)
                 # There is at least one gate in range so set the flags to -9999
                 for m in 1:n_moments
@@ -694,9 +719,9 @@ function grid_composite(reference_latitude::AbstractFloat, reference_longitude::
             end
 
             # Loops through the nearby gates with valid data
-            valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict["DBZ"]])))
+            valid_gates = collect(keys(skipmissing(radar_volume.moments[gates,moment_dict[valid_key]])))
             if !isempty(valid_gates)
-                dbzmax, max_idx = findmax(gate -> radar_volume.moments[gate,moment_dict["DBZ"]], gates[valid_gates])
+                dbzmax, max_idx = findmax(gate -> radar_volume.moments[gate,moment_dict[valid_key]], gates[valid_gates])
     
                 # Divide by the total weight for that gridbox
                 for m in 1:n_moments
@@ -925,7 +950,12 @@ function write_gridded_radar_rhi(file, start_time, stop_time, gridpoints, radar_
     
     # Loop through the moments
     for key in keys(moment_dict)
-        var_attrib = merge(common_attrib, variable_attrib_dict[key])
+        var_attrib = common_attrib
+        if haskey(variable_attrib_dict,key)
+            var_attrib = merge(common_attrib, variable_attrib_dict[key])
+        else
+            var_attrib = merge(common_attrib, variable_attrib_dict["UNKNOWN"])
+        end
         ncvar = defVar(ds, key, Float32, ("R", "Z", "time"), attrib = var_attrib)
         ncvar[:] = ncgrid[moment_dict[key],:,:]
     end

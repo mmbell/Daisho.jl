@@ -118,6 +118,12 @@ phidp_l1_attrib = OrderedDict(
         "units"                     => "deg",
     )
 
+unknown_attrib = OrderedDict(
+    "standard_name"             => "UNKNOWN",
+    "long_name"                 => "unknown",
+    "units"                     => "unknown",
+)
+
 variable_attrib_dict = Dict()
 variable_attrib_dict["DBZ"] = dbz_attrib
 variable_attrib_dict["ZDR"] = zdr_attrib
@@ -136,3 +142,5 @@ variable_attrib_dict["WIDTH_L1"] = width_l1_attrib
 variable_attrib_dict["VEL_L1"] = vel_l1_attrib
 variable_attrib_dict["RATE_CSU_BLENDED"] = rainrate_attrib
 variable_attrib_dict["PID"] = pid_attrib
+variable_attrib_dict["UNKNOWN"] = unknown_attrib
+

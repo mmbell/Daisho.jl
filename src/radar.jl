@@ -15,7 +15,7 @@ Base.@kwdef struct radar
     moments::Array{Union{Missing, Float64}}
 end
 
-function initialize_moment_dictionaries(raw_moment_names, qc_moment_names)
+function initialize_moment_dictionaries(raw_moment_names, qc_moment_names, moment_grid_type)
 
     # This function maps names to numbers to facilitate array operations
     
@@ -27,11 +27,13 @@ function initialize_moment_dictionaries(raw_moment_names, qc_moment_names)
 
     # QCed moments are post-processed names
     qc_moment_dict = Dict()
+    grid_type_dict = Dict()
     for i in eachindex(qc_moment_names)
         qc_moment_dict[qc_moment_names[i]] = i
+        grid_type_dict[i] = moment_grid_type[i]
     end
 
-    return raw_moment_dict, qc_moment_dict
+    return raw_moment_dict, qc_moment_dict, grid_type_dict
 end
 
 function initialize_qc_fields(volume, raw_moment_dict, qc_moment_dict)
@@ -64,9 +66,19 @@ function split_sweeps(radar_volume)
         elevation = view(radar_volume.elevation, swp)
         range = radar_volume.range
         time = view(radar_volume.time, swp)
-        latitude = view(radar_volume.latitude, swp)
-        longitude = view(radar_volume.longitude, swp)
-        altitude = view(radar_volume.altitude, swp)
+        # Check for moving or stationary platform
+        latitude = Array{Union{Missing, Float32}}(undef, length(swp))
+        longitude = Array{Union{Missing, Float32}}(undef, length(swp))
+        altitude = Array{Union{Missing, Float32}}(undef, length(swp))
+        if length(radar_volume.latitude) == 1
+            latitude = repeat(radar_volume.latitude, length(swp))
+            longitude = repeat(radar_volume.longitude, length(swp))
+            altitude = repeat(radar_volume.altitude, length(swp))
+        else
+            latitude = view(radar_volume.latitude, swp)
+            longitude = view(radar_volume.longitude, swp)
+            altitude = view(radar_volume.altitude, swp)
+        end
         fixed_angles = view(radar_volume.fixed_angles, i)
         swpstart = view(radar_volume.swpstart, i)
         swpend = view(radar_volume.swpend, i)
