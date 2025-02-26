@@ -154,7 +154,7 @@ end
 
 function grid_radar_ppi(radar_volume, moment_dict, grid_type_dict, output_file,
         xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation, power_threshold,
-        missing_key="SQI", valid_key="DBZ")
+        missing_key="SQI", valid_key="DBZ", heading=-9999.0)
 
     # Set the reference to the first location in the volume, but could be a parameter
     reference_latitude = radar_volume.latitude[1]
@@ -171,13 +171,13 @@ function grid_radar_ppi(radar_volume, moment_dict, grid_type_dict, output_file,
 
     write_gridded_radar_ppi(output_file, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
-        reference_latitude, reference_longitude)
+        reference_latitude, reference_longitude, heading)
     
 end
 
 function grid_radar_composite(radar_volume, moment_dict, grid_type_dict, output_file,
         xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation,
-        missing_key="SQI", valid_key="DBZ")
+        missing_key="SQI", valid_key="DBZ", mean_heading=-9999.0)
 
     # Set the reference to the first location in the volume, but could be a parameter
     reference_latitude = radar_volume.latitude[1]
@@ -194,7 +194,7 @@ function grid_radar_composite(radar_volume, moment_dict, grid_type_dict, output_
 
     write_gridded_radar_ppi(output_file, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
-        reference_latitude, reference_longitude)
+        reference_latitude, reference_longitude, mean_heading)
     
 end
 
@@ -806,12 +806,12 @@ function write_gridded_radar_volume(file, start_time, stop_time, gridpoints, rad
         "axis"                      => "Z",
     ))
 
-    nclat = defVar(ds,"latitude", Float32, ("X", "Y"), attrib = OrderedDict(
+    nclat = defVar(ds,"latitude", Float32, ("X", "Y", "time"), attrib = OrderedDict(
         "standard_name"             => "latitude",
         "units"                     => "degrees_north",
     ))
     
-    nclon = defVar(ds,"longitude", Float32, ("X", "Y"), attrib = OrderedDict(
+    nclon = defVar(ds,"longitude", Float32, ("X", "Y", "time"), attrib = OrderedDict(
         "standard_name"             => "longitude",
         "units"                     => "degrees_east",
     ))
@@ -913,12 +913,12 @@ function write_gridded_radar_rhi(file, start_time, stop_time, gridpoints, radar_
         "axis"                      => "Z",
     ))
 
-    nclat = defVar(ds,"latitude", Float32, ("R",), attrib = OrderedDict(
+    nclat = defVar(ds,"latitude", Float32, ("R", "time"), attrib = OrderedDict(
         "standard_name"             => "latitude",
         "units"                     => "degrees_north",
     ))
     
-    nclon = defVar(ds,"longitude", Float32, ("R",), attrib = OrderedDict(
+    nclon = defVar(ds,"longitude", Float32, ("R", "time"), attrib = OrderedDict(
         "standard_name"             => "longitude",
         "units"                     => "degrees_east",
     ))
@@ -963,7 +963,7 @@ function write_gridded_radar_rhi(file, start_time, stop_time, gridpoints, radar_
     close(ds)
 end
 
-function write_gridded_radar_ppi(file, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat)
+function write_gridded_radar_ppi(file, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, mean_heading::AbstractFloat)
 
     # Delete any pre-existing file
     rm(file, force=true)
@@ -973,8 +973,8 @@ function write_gridded_radar_ppi(file, start_time, stop_time, gridpoints, radar_
         "history"                   => "Created by Michael M. Bell using custom software",
         "institution"               => "CSU",
         "source"                    => "SEAPOL",
-        "title"                     => "PRELIMINARY Gridded Radar Data",
-        "comment"                   => "PRELIMINARY In-field Analysis. Please use with caution!",
+        "title"                     => "Gridded Radar Data v1.0",
+        "comment"                   => "Level 4 Gridded Radar Data"
     ))
     
     # Dimensions
@@ -1023,12 +1023,12 @@ function write_gridded_radar_ppi(file, start_time, stop_time, gridpoints, radar_
     ))
 
 
-    nclat = defVar(ds,"latitude", Float32, ("X", "Y"), attrib = OrderedDict(
+    nclat = defVar(ds,"latitude", Float32, ("X", "Y", "time"), attrib = OrderedDict(
         "standard_name"             => "latitude",
         "units"                     => "degrees_north",
     ))
     
-    nclon = defVar(ds,"longitude", Float32, ("X", "Y"), attrib = OrderedDict(
+    nclon = defVar(ds,"longitude", Float32, ("X", "Y", "time"), attrib = OrderedDict(
         "standard_name"             => "longitude",
         "units"                     => "degrees_east",
     ))
@@ -1043,6 +1043,11 @@ function write_gridded_radar_ppi(file, start_time, stop_time, gridpoints, radar_
         "false_northing"            => 0.0,        
     ))
 
+    ncheading = defVar(ds, "heading", Float32, ("time",), attrib = OrderedDict(
+        "standard_name"             => "heading",
+        "units"                     => "degrees",
+    ))
+
     # Using start time for now, but eventually need to use some reference time
     nctime[:] = datetime2unix.(stop_time)
     ncstarttime[:] = datetime2unix.(start_time)
@@ -1052,6 +1057,7 @@ function write_gridded_radar_ppi(file, start_time, stop_time, gridpoints, radar_
     nclat[:] = latlon_grid[:,:,1]' 
     nclon[:] = latlon_grid[:,:,2]' 
     ncgrid_mapping[:] = -32768.0
+    ncheading[:] = mean_heading
 
     # Define variables
     perm = (1, 3, 2)
@@ -1060,7 +1066,12 @@ function write_gridded_radar_ppi(file, start_time, stop_time, gridpoints, radar_
     
     # Loop through the moments
     for key in keys(moment_dict)
-        var_attrib = merge(common_attrib, variable_attrib_dict[key])
+        var_attrib = common_attrib
+        if haskey(variable_attrib_dict,key)
+            var_attrib = merge(common_attrib, variable_attrib_dict[key])
+        else
+            var_attrib = merge(common_attrib, variable_attrib_dict["UNKNOWN"])
+        end
         ncvar = defVar(ds, key, Float32, ("X", "Y", "time"), attrib = var_attrib)
         ncvar[:] = ncgrid[moment_dict[key],:,:]
     end

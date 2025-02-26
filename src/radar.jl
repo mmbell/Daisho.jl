@@ -191,6 +191,20 @@ function read_cfradial(file, moment_dict)
 
 end
 
+function get_radar_orientation(file)
+
+    inputds = NCDataset(file)
+    heading = inputds["heading"]
+    headingdata = heading[:]
+
+    pitch = inputds["pitch"]
+    pitchdata = pitch[:]
+
+    roll = inputds["roll"]
+    rolldata = roll[:]
+    return [headingdata pitchdata rolldata]
+end
+
 function write_qced_cfradial(file, qc_file, qc_moments, qc_moment_dict)
 
     inputds = NCDataset(file);
