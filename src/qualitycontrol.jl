@@ -119,3 +119,32 @@ function stddev_phidp_threshold(moments, moment_dict, n_gates, n_rays, window = 
     return moments
 
 end
+
+function remove_platform_motion!(volume, moments, moment_dict)
+
+    # Get rid of platform motion
+    n_gates = length(volume.range)
+    n_rays =  length(volume.azimuth)
+    vel = reshape(moments[:,moment_dict["VEL"]],n_gates,n_rays)
+
+    # Get the platform motion
+    for i in 1:n_rays
+        az = volume.azimuth[i] * pi/180.0
+        el = volume.elevation[i] * pi/180.0
+        ew_platform = volume.ew_platform[i]
+        ns_platform = volume.ns_platform[i]
+        w_platform = volume.w_platform[i]
+        nyquist_velocity = volume.nyquist_velocity[i]
+        platform_vr = ew_platform * cos(el) * sin(az) + ns_platform * cos(el) * cos(az) + w_platform * sin(el)
+        vel[:,i] .= vel[:,i] .+ platform_vr
+        println("Ray: ", i, " Platform velocity: ", platform_vr)
+        # Put in the Nyquist interval
+        vel[:,i] = ifelse.(isless.(vel[:,i], -nyquist_velocity), vel[:,i] .+ 2.0 .* nyquist_velocity, vel[:,i])
+        vel[:,i] = ifelse.(isless.(nyquist_velocity, vel[:,i]), vel[:,i] .- 2.0 .* nyquist_velocity, vel[:,i])
+    end
+
+    # Put the velocity back in the volume
+    moments[:,moment_dict["VEL"]] .= vel[:]
+    return moments
+
+end
