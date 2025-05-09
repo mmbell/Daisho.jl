@@ -75,6 +75,12 @@ pid_attrib = OrderedDict(
     "units"                     => "none",
 )
 
+pid_qc_attrib = OrderedDict(
+    "standard_name"             => "PID_FOR_QC",
+    "long_name"                 => "particle_id",
+    "units"                     => "none",
+)
+
 hid_attrib = OrderedDict(
     "standard_name"             => "HID_CSU",
     "long_name"                 => "particle_id",
@@ -148,6 +154,7 @@ variable_attrib_dict["WIDTH_L1"] = width_l1_attrib
 variable_attrib_dict["VEL_L1"] = vel_l1_attrib
 variable_attrib_dict["RATE_CSU_BLENDED"] = rainrate_attrib
 variable_attrib_dict["PID"] = pid_attrib
+variable_attrib_dict["PID_FOR_QC"] = pid_qc_attrib
 variable_attrib_dict["HID_CSU"] = hid_attrib
 variable_attrib_dict["UNKNOWN"] = unknown_attrib
 
