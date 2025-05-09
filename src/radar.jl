@@ -4,6 +4,10 @@ Base.@kwdef struct radar
     scan_name::String
     azimuth::Array{Union{Missing, Float32}}
     elevation::Array{Union{Missing, Float32}}
+    ew_platform::Array{Union{Missing, Float32}}
+    ns_platform::Array{Union{Missing, Float32}}
+    w_platform::Array{Union{Missing, Float32}}
+    nyquist_velocity::Array{Union{Missing, Float32}}
     range::Array{Union{Missing, Float32}}
     time::Array{DateTime}
     latitude::Array{Union{Missing, Float32}}
@@ -64,6 +68,10 @@ function split_sweeps(radar_volume)
         scan_name = radar_volume.scan_name
         azimuth = view(radar_volume.azimuth, swp)
         elevation = view(radar_volume.elevation, swp)
+        ew_platform = view(radar_volume.ew_platform, swp)
+        ns_platform = view(radar_volume.ns_platform, swp)
+        w_platform = view(radar_volume.w_platform, swp)
+        nyquist_velocity = view(radar_volume.nyquist_velocity, swp)
         range = radar_volume.range
         time = view(radar_volume.time, swp)
         # Check for moving or stationary platform
@@ -86,7 +94,7 @@ function split_sweeps(radar_volume)
         m_start = Int(length(radar_volume.range)*(radar_volume.swpstart[i]) + 1)
         m_end = Int(length(radar_volume.range)*(radar_volume.swpend[i] + 1))
         moments = view(radar_volume.moments, m_start:m_end, :)
-        sweeps[i] = radar(scan_name, azimuth, elevation, range, time,
+        sweeps[i] = radar(scan_name, azimuth, elevation, ew_platform, ns_platform, w_platform, nyquist_velocity, range, time,
             latitude, longitude, altitude, fixed_angles, swpstart, swpend, moments)
     end
 
@@ -145,6 +153,30 @@ function read_cfradial(file, moment_dict)
     el = inputds["elevation"]
     eldata = el[:]
     
+    if haskey(inputds,"eastward_velocity")
+        ew_platform = inputds["eastward_velocity"]
+        ewdata = ew_platform[:]
+    else
+        ewdata = zeros(length(azdata))
+    end
+
+    if haskey(inputds,"northward_velocity")
+        ns_platform = inputds["northward_velocity"]
+        nsdata = ns_platform[:]
+    else
+        nsdata = zeros(length(azdata))
+    end
+
+    if haskey(inputds,"vertical_velocity")
+        w_platform = inputds["vertical_velocity"]
+        wdata = w_platform[:]
+    else
+        wdata = zeros(length(azdata))
+    end
+
+    nyquist_velocity = inputds["nyquist_velocity"]
+    nyquistdata = nyquist_velocity[:]
+
     range = inputds["range"]
     rangedata = range[:]
     
@@ -187,7 +219,7 @@ function read_cfradial(file, moment_dict)
     end
 
     close(inputds)
-    return radar(scan_name, azdata, eldata, rangedata, timedata, latdata, londata, altdata, angledata, swpstart, swpend, radardata)
+    return radar(scan_name, azdata, eldata, ewdata, nsdata, wdata, nyquistdata, rangedata, timedata, latdata, londata, altdata, angledata, swpstart, swpend, radardata)
 
 end
 
