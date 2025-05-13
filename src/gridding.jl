@@ -1278,19 +1278,29 @@ function write_gridded_radar_column(file, start_time, stop_time, gridpoints, rad
     rm(file, force=true)
 
     ds = NCDataset(file,"c", attrib = OrderedDict(
-        "Conventions"               => "CF-1.6",
-        "history"                   => "Created by Michael M. Bell using custom software",
-        "institution"               => "CSU",
-        "source"                    => "SEAPOL",
-        "title"                     => "PRELIMINARY Gridded Radar Data",
-        "comment"                   => "PRELIMINARY In-field Analysis. Please use with caution!",
+        "Conventions"               => "CF-1.12",
+        "history"                   => "v1.0",
+        "institution"               => "Colorado State University",
+        "source"                    => "SEA-POL radar",
+        "instrument"                => "SEA-POL",
+        "title"                     => "Level 4 Gridded SEA-POL Radar Quasi-Vertical Profile Data",
+        "summary"                   => "This is the QVP data from the SEA-POL radar",
+        "creator_name"              => "Michael M. Bell",
+        "creator_email"             => "mmbell@colostate.edu",
+        "creator_id"                => "https://orcid.org/0000-0002-0496-331X",
+        "project"                   => "PICCOLO, BOWTIE, ORCESTRA",
+        "platform"                  => "RV METEOR",
+        "references"                => "Comma-separated list of URL/DOI to extended information",
+        "keywords"                  => "Comma-separated list of keywords",
+        "processing_level"          => "Level 4",
+        "license"                   => "CC-BY-4.0",
     ))
 
     # Dimensions
     # Could concatenate multiple volumes here
     #numswps = length(swpstart)
     zdim = size(radar_grid,2)
-    ds.dim["time"] = 1
+    ds.dim["time"] = Inf
     ds.dim["Z"] = zdim
 
     # Declare variables
@@ -1363,7 +1373,7 @@ function write_gridded_radar_column(file, start_time, stop_time, gridpoints, rad
             var_attrib = merge(common_attrib, variable_attrib_dict["UNKNOWN"])
         end
         ncvar = defVar(ds, key, Float32, ("Z", "time"), attrib = var_attrib)
-        ncvar[:] = radar_grid[moment_dict[key],:]
+        ncvar[:,1] = radar_grid[moment_dict[key],:]
     end
 
     close(ds)
