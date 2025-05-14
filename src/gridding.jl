@@ -786,13 +786,10 @@ function grid_column(reference_latitude::AbstractFloat, reference_longitude::Abs
     radar_grid = fill(-32768.0,n_moments,size(gridpoints,1))
     weights = zeros(Float64,n_moments,size(gridpoints,1))
 
-    # Allocate a column grid for the map
+    # Allocate a column grid for the map, but it is just a single point
     latlon_grid = Array{Float64}(undef,2)
-    # Using CoordRefSystems pure Julia transform, the Proj.jl wrapper was significantly slower for unknown reasons
-    cartTM = convert(TM,Cartesian{WGS84Latest}(grid_origin.x, grid_origin.y))
-    latlon = convert(LatLon,cartTM)
-    latlon_grid[1] = ustrip(latlon.lat)
-    latlon_grid[2] = ustrip(latlon.lon)
+    latlon_grid[1] = reference_latitude
+    latlon_grid[2] = reference_longitude
 
     # Loop through the horizontal indices then do each column
     Threads.@threads for i in 1:size(gridpoints)[1]
@@ -1300,7 +1297,7 @@ function write_gridded_radar_column(file, start_time, stop_time, gridpoints, rad
     # Could concatenate multiple volumes here
     #numswps = length(swpstart)
     zdim = size(radar_grid,2)
-    ds.dim["time"] = Inf
+    ds.dim["time"] = 1 # To make this unlimited use 'Inf' here, but then all the time related variables are missing for some reason
     ds.dim["Z"] = zdim
 
     # Declare variables
@@ -1330,7 +1327,7 @@ function write_gridded_radar_column(file, start_time, stop_time, gridpoints, rad
     ncz = defVar(ds,"Z", Float32, ("Z",), attrib = OrderedDict(
         "standard_name"             => "altitude",
         "long_name"                 => "constant altitude levels",
-        "units"                     => "km",
+        "units"                     => "m",
         "positive"                  => "up",
         "axis"                      => "Z",
     ))
