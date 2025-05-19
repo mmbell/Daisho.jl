@@ -33,6 +33,32 @@ function initialize_regular_grid(zmin, zincr, zdim)
     return regular_1d_grid
 end
 
+function initialize_regular_grid(lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim)
+
+    # Define and allocate a 3d regular latlon grid
+    reference_latitude = latmin + Int64(round(latdim/2)) * degincr
+    reference_longitude = lonmin + Int64(round(londim/2)) * degincr
+    TM = CoordRefSystems.shift(TransverseMercator{1.0,reference_latitude,WGS84Latest}, lonₒ= reference_longitude)
+
+    latlon_grid = Array{Float64}(undef,latdim,londim,2)
+    for i in CartesianIndices(size(latlon_grid)[1:2])
+        latlon_grid[i,1] = degincr * (i[1]-1) + latmin
+        latlon_grid[i,2] = degincr * (i[2]-1) + lonmin
+    end
+    cartTM = convert.(TM,LatLon.(latlon_grid[:,:,1], latlon_grid[:,:,2]))
+
+    regular_3d_grid = Array{Float64}(undef,zdim,latdim,londim,3)
+    for i in CartesianIndices(size(regular_3d_grid)[2:3])
+        for j in 1:zdim
+            regular_3d_grid[j,i,1] = zincr * (j[1]-1) + zmin
+            regular_3d_grid[j,i,2] = ustrip(cartTM[i].y)
+            regular_3d_grid[j,i,3] = ustrip(cartTM[i].x)
+        end
+    end
+
+    return regular_3d_grid
+end
+
 function get_radar_zyx(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, radar_volume::radar, projection)
 
     # Radar locations mapped to transverse mercator with Z,Y,X dimensions
@@ -136,6 +162,34 @@ function grid_radar_volume(radar_volume, moment_dict, grid_type_dict, output_fil
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
         reference_latitude, reference_longitude, heading)
     
+end
+
+function grid_radar_latlon_volume(radar_volume, moment_dict, grid_type_dict, output_file,
+    lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim, beam_inflation, power_threshold,
+    missing_key="SQI", valid_key="DBZ", heading=-9999.0)
+
+    # Set the reference to the first location in the volume, but could be a parameter
+    reference_latitude = latmin + Int64(round(latdim/2)) * degincr
+    reference_longitude = lonmin + Int64(round(londim/2)) * degincr
+
+    #reference_latitude = radar_volume.latitude[1]
+    #reference_longitude = radar_volume.longitude[1]
+
+    # Initialize the gridpoints
+    # This array is slightly different than Springsteel spectral arrays, need to reconcile later
+    gridpoints = initialize_regular_grid(lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim)
+
+    h_roi = 111.0 * degincr * 0.75
+    v_roi = 111.0 * degincr * 0.75
+
+    radar_grid, latlon_grid = grid_volume(reference_latitude, reference_longitude, gridpoints, 
+        radar_volume, moment_dict, grid_type_dict, h_roi, v_roi, beam_inflation, power_threshold,
+        missing_key, valid_key)
+
+    write_gridded_radar_volume(output_file, radar_volume.time[1],
+        radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
+        reference_latitude, reference_longitude, heading)
+
 end
 
 function grid_radar_rhi(radar_volume, moment_dict, grid_type_dict, output_file,
@@ -917,7 +971,7 @@ function grid_column(reference_latitude::AbstractFloat, reference_longitude::Abs
     return radar_grid, latlon_grid
 end
 
-function write_gridded_radar_volume(file, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat)
+function write_gridded_radar_volume(file, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, mean_heading::AbstractFloat)
 
     # Delete any pre-existing file
     rm(file, force=true)
