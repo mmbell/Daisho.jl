@@ -33,11 +33,9 @@ function initialize_regular_grid(zmin, zincr, zdim)
     return regular_1d_grid
 end
 
-function initialize_regular_grid(lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim)
+function initialize_regular_grid(reference_latitude, reference_longitude, lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim)
 
     # Define and allocate a 3d regular latlon grid
-    reference_latitude = latmin + Int64(round(latdim/2)) * degincr
-    reference_longitude = lonmin + Int64(round(londim/2)) * degincr
     TM = CoordRefSystems.shift(TransverseMercator{1.0,reference_latitude,WGS84Latest}, lonₒ= reference_longitude)
 
     latlon_grid = Array{Float64}(undef,latdim,londim,2)
@@ -169,15 +167,18 @@ function grid_radar_latlon_volume(radar_volume, moment_dict, grid_type_dict, out
     missing_key="SQI", valid_key="DBZ", heading=-9999.0)
 
     # Set the reference to the first location in the volume, but could be a parameter
-    reference_latitude = latmin + Int64(round(latdim/2)) * degincr
-    reference_longitude = lonmin + Int64(round(londim/2)) * degincr
+    #reference_latitude = latmin + Int64(round(latdim/2)) * degincr
+    #reference_longitude = lonmin + Int64(round(londim/2)) * degincr
 
-    #reference_latitude = radar_volume.latitude[1]
-    #reference_longitude = radar_volume.longitude[1]
+    reference_latitude = radar_volume.latitude[1] - rem(radar_volume.latitude[1], degincr)
+    reference_longitude = radar_volume.longitude[1] - rem(radar_volume.longitude[1], degincr)
+
+    latmin = round(reference_latitude + latmin, digits=2)
+    lonmin = round(reference_longitude + lonmin, digits=2)
 
     # Initialize the gridpoints
     # This array is slightly different than Springsteel spectral arrays, need to reconcile later
-    gridpoints = initialize_regular_grid(lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim)
+    gridpoints = initialize_regular_grid(reference_latitude, reference_longitude, lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim)
 
     h_roi = 111.0 * degincr * 0.75
     v_roi = 111.0 * degincr * 0.75
