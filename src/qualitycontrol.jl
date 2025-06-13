@@ -148,3 +148,69 @@ function remove_platform_motion!(volume, moments, moment_dict)
     return moments
 
 end
+
+function threshold_dbz(volume, raw_moment_dict, qc_moments, qc_moment_dict,
+    dbz_threshold, vel_threshold, sw_threshold)
+
+    count = 0
+    bad_count = 0
+    real_count = 0
+    raw_moments = volume.moments
+    beam_info = get_beam_info(volume)
+    # Check for dBZ values greater than the threshold
+    for i in 1:size(raw_moments,1)
+        if ismissing(raw_moments[i,raw_moment_dict["DBZ"]])
+            continue
+        end
+        height = beam_info[i,4]
+        count += 1
+        if (raw_moments[i,raw_moment_dict["DBZ"]] >= dbz_threshold)
+
+            if (abs(raw_moments[i,raw_moment_dict["VEL"]]) <= vel_threshold
+                && raw_moments[i,raw_moment_dict["WIDTH"]] <= sw_threshold
+                && height < 500.0)
+            #if height < 500.0
+                #raw_moments[i,raw_moment_dict["KDP"]] > 0.0 || raw_moments[i,raw_moment_dict["HID_CSU"]] < 7
+                bad_count += 1
+                #println("Likely clutter at $i  exceeding $(dbz_threshold) at height $(height) m")
+                #println(beam_info[i,:])
+                for key in keys(qc_moment_dict)
+                    if key == "SQI" || key == "PID_FOR_QC"
+                        # Don't QC this field
+                        continue
+                    end
+                    #println("$key: $(raw_moments[i,raw_moment_dict[key]])")
+                    qc_moments[i,:] .= missing
+                end
+            else
+                real_count += 1
+                println("Maybe real at $i  exceeding $(dbz_threshold) at height $(height) m")
+                println(beam_info[i,:])
+                for key in keys(qc_moment_dict)
+                    println("$key: $(raw_moments[i,raw_moment_dict[key]])")
+                 end
+            end
+        end
+    end
+
+    println("Total gates: ", count, ", Bad gates: ", bad_count, ", Real gates: ", real_count)
+    if count > 0
+        println(" Bad Percentage: ", round(bad_count/count * 100, digits=2), "%", ", Real Percentage: ", round(real_count/count * 100, digits=2), "%")
+    end
+
+#    for key in keys(qc_moment_dict)
+#        
+#        if key == "SQI" || key == "PHIDP"
+#            # Don't QC this field
+#            continue
+#        end
+#
+#        qc_moments[:,qc_moment_dict[key]] = ifelse.(isless.(raw_moments[:,raw_moment_dict["DBZ"]],dbz_threshold),
+#            qc_moments[:,qc_moment_dict[key]], missing)
+#        println("Thresholding ", key, " with dBZ threshold: ", dbz_threshold)
+#
+#    end
+
+    return qc_moments
+
+end
