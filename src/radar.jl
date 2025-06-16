@@ -2509,96 +2509,6 @@ function write_qced_cfradial(file, qc_file, qc_moments, qc_moment_dict)
         "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
     ))
 
-    ncDBZ_QC = defVar(ds,"DBZ_QC", Float32, ("range", "time"), attrib = OrderedDict(
-        "long_name"                 => "dbz_qc",
-        "standard_name"             => "dbz_qc",
-        "units"                     => "dBZ",
-        "sampling_ratio"            => Float32(1.0),
-        "_FillValue"                => Float32(-9999.0),
-        "grid_mapping"              => "grid_mapping",
-        "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
-    ))
-    
-    ncZDR_QC = defVar(ds,"ZDR_QC", Float32, ("range", "time"), attrib = OrderedDict(
-        "long_name"                 => "zdr_qc",
-        "standard_name"             => "zdr_qc",
-        "units"                     => "dB",
-        "sampling_ratio"            => Float32(1.0),
-        "_FillValue"                => Float32(-9999.0),
-        "grid_mapping"              => "grid_mapping",
-        "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
-    ))
-
-    ncVEL_QC = defVar(ds,"VEL_QC", Float32, ("range", "time"), attrib = OrderedDict(
-        "long_name"                 => "vel_qc",
-        "standard_name"             => "vel_qc",
-        "units"                     => "m/s",
-        "sampling_ratio"            => Float32(1.0),
-        "_FillValue"                => Float32(-9999.0),
-        "grid_mapping"              => "grid_mapping",
-        "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
-    ))
-
-    ncKDP_QC = defVar(ds,"KDP_QC", Float32, ("range", "time"), attrib = OrderedDict(
-        "long_name"                 => "kdp_qc",
-        "standard_name"             => "kdp_qc",
-        "units"                     => "deg/km",
-        "sampling_ratio"            => Float32(1.0),
-        "_FillValue"                => Float32(-9999.0),
-        "grid_mapping"              => "grid_mapping",
-        "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
-    ))
-
-    ncPHIDP_QC = defVar(ds,"PHIDP_QC", Float32, ("range", "time"), attrib = OrderedDict(
-        "long_name"                 => "phidp_qc",
-        "standard_name"             => "phidp_qc",
-        "units"                     => "deg",
-        "sampling_ratio"            => Float32(1.0),
-        "_FillValue"                => Float32(-9999.0),
-        "grid_mapping"              => "grid_mapping",
-        "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
-    ))
-
-    ncRHOHV_QC = defVar(ds,"RHOHV_QC", Float32, ("range", "time"), attrib = OrderedDict(
-        "long_name"                 => "rhohv_qc",
-        "standard_name"             => "rhohv_qc",
-        "units"                     => "",
-        "sampling_ratio"            => Float32(1.0),
-        "_FillValue"                => Float32(-9999.0),
-        "grid_mapping"              => "grid_mapping",
-        "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
-    ))
-
-    ncRATE_QC = defVar(ds,"RATE_QC", Float32, ("range", "time"), attrib = OrderedDict(
-        "long_name"                 => "rate_qc",
-        "standard_name"             => "rate_qc",
-        "units"                     => "mm/hr",
-        "sampling_ratio"            => Float32(1.0),
-        "_FillValue"                => Float32(-9999.0),
-        "grid_mapping"              => "grid_mapping",
-        "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
-    ))
-
-    ncHID_QC = defVar(ds,"HID_QC", Float64, ("range", "time"), attrib = OrderedDict(
-        "long_name"                 => "hydrometeor_id_qc",
-        "standard_name"             => "hydrometeor_id_qc",
-        "units"                     => "",
-        "sampling_ratio"            => Float32(1.0),
-        "_FillValue"                => -9999.0,
-        "grid_mapping"              => "grid_mapping",
-        "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
-    ))
-
-    ncWIDTH_QC = defVar(ds,"WIDTH_QC", Float32, ("range", "time"), attrib = OrderedDict(
-        "long_name"                 => "width_qc",
-        "standard_name"             => "width_qc",
-        "units"                     => "m/s",
-        "sampling_ratio"            => Float32(1.0),
-        "_FillValue"                => Float32(-9999.0),
-        "grid_mapping"              => "grid_mapping",
-        "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
-    ))
-
     # Define variables
     ncvolume_number[:] = inputds["volume_number"][:]
     ncplatform_type[:] = inputds["platform_type"][:]
@@ -2740,15 +2650,15 @@ function write_qced_cfradial(file, qc_file, qc_moments, qc_moment_dict)
     ncZDR_L2[:] = inputds["ZDR_L2"][:]
     
     # QCed variables
-    ncDBZ_QC[:] = qc_moments[:, qc_moment_dict["DBZ"]]
-    ncZDR_QC[:] = qc_moments[:, qc_moment_dict["ZDR"]]
-    ncVEL_QC[:] = qc_moments[:, qc_moment_dict["VEL"]]
-    ncKDP_QC[:] = qc_moments[:, qc_moment_dict["KDP"]]
-    ncRHOHV_QC[:] = qc_moments[:, qc_moment_dict["RHOHV"]]
-    ncPHIDP_QC[:] = qc_moments[:, qc_moment_dict["PHIDP"]]
-    ncWIDTH_QC[:] = qc_moments[:, qc_moment_dict["WIDTH"]]
-    ncRATE_QC[:] = qc_moments[:, qc_moment_dict["RATE_CSU_BLENDED"]]
-    ncHID_QC[:] = qc_moments[:, qc_moment_dict["HID_CSU"]]
+    ncDBZ[:] = qc_moments[:, qc_moment_dict["DBZ"]]
+    ncZDR[:] = qc_moments[:, qc_moment_dict["ZDR"]]
+    ncVEL[:] = qc_moments[:, qc_moment_dict["VEL"]]
+    ncKDP[:] = qc_moments[:, qc_moment_dict["KDP"]]
+    ncRHOHV[:] = qc_moments[:, qc_moment_dict["RHOHV"]]
+    ncPHIDP[:] = qc_moments[:, qc_moment_dict["PHIDP"]]
+    ncWIDTH[:] = qc_moments[:, qc_moment_dict["WIDTH"]]
+    ncRATE_CSU_BLENDED[:] = qc_moments[:, qc_moment_dict["RATE_CSU_BLENDED"]]
+    ncHID_CSU[:] = qc_moments[:, qc_moment_dict["HID_CSU"]]
     #ncSMOOTH_SQI[:] = qc_moments[qc_moment_dict["SQI"],:]
     
     # Loop through the moments
