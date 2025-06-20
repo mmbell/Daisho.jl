@@ -137,7 +137,7 @@ function appx_inverse_projection(reference_latitude::AbstractFloat, reference_lo
 
 end
 
-function grid_radar_volume(radar_volume, moment_dict, grid_type_dict, output_file,
+function grid_radar_volume(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
         xmin, xincr, xdim, ymin, yincr, ydim, zmin, zincr, zdim, beam_inflation, power_threshold,
         missing_key="SQI", valid_key="DBZ", heading=-9999.0)
 
@@ -156,13 +156,13 @@ function grid_radar_volume(radar_volume, moment_dict, grid_type_dict, output_fil
         radar_volume, moment_dict, grid_type_dict, h_roi, v_roi, beam_inflation, power_threshold,
         missing_key, valid_key)
 
-    write_gridded_radar_volume(output_file, radar_volume.time[1],
+    write_gridded_radar_volume(output_file, index_time, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
         reference_latitude, reference_longitude, heading)
     
 end
 
-function grid_radar_latlon_volume(radar_volume, moment_dict, grid_type_dict, output_file,
+function grid_radar_latlon_volume(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
     lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim, beam_inflation, power_threshold,
     missing_key="SQI", valid_key="DBZ", heading=-9999.0)
 
@@ -187,13 +187,13 @@ function grid_radar_latlon_volume(radar_volume, moment_dict, grid_type_dict, out
         radar_volume, moment_dict, grid_type_dict, h_roi, v_roi, beam_inflation, power_threshold,
         missing_key, valid_key)
 
-    write_gridded_radar_volume(output_file, radar_volume.time[1],
+    write_gridded_radar_volume(output_file, index_time, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
         reference_latitude, reference_longitude, heading)
 
 end
 
-function grid_radar_rhi(radar_volume, moment_dict, grid_type_dict, output_file,
+function grid_radar_rhi(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
         rmin, rincr, rdim, rhi_zmin, rhi_zincr, rhi_zdim, beam_inflation, power_threshold,
         missing_key::String="SQI", valid_key::String="DBZ")
 
@@ -211,13 +211,13 @@ function grid_radar_rhi(radar_volume, moment_dict, grid_type_dict, output_file,
     radar_grid, latlon_grid = grid_rhi(reference_latitude, reference_longitude, gridpoints, 
         radar_volume, moment_dict, grid_type_dict, h_roi, v_roi, beam_inflation, power_threshold, missing_key, valid_key)
 
-    write_gridded_radar_rhi(output_file, radar_volume.time[1],
+    write_gridded_radar_rhi(output_file, index_time, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
         reference_latitude, reference_longitude)
     
 end
 
-function grid_radar_ppi(radar_volume, moment_dict, grid_type_dict, output_file,
+function grid_radar_ppi(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
         xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation, power_threshold,
         missing_key="SQI", valid_key="DBZ", heading=-9999.0)
 
@@ -234,13 +234,13 @@ function grid_radar_ppi(radar_volume, moment_dict, grid_type_dict, output_file,
     radar_grid, latlon_grid = grid_ppi(reference_latitude, reference_longitude, gridpoints, 
         radar_volume, moment_dict, grid_type_dict, h_roi, beam_inflation, power_threshold, missing_key, valid_key)
 
-    write_gridded_radar_ppi(output_file, radar_volume.time[1],
+    write_gridded_radar_ppi(output_file, index_time, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
         reference_latitude, reference_longitude, heading)
     
 end
 
-function grid_radar_composite(radar_volume, moment_dict, grid_type_dict, output_file,
+function grid_radar_composite(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
         xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation,
         missing_key="SQI", valid_key="DBZ", mean_heading=-9999.0)
 
@@ -257,13 +257,13 @@ function grid_radar_composite(radar_volume, moment_dict, grid_type_dict, output_
     radar_grid, latlon_grid = grid_composite(reference_latitude, reference_longitude, gridpoints, 
         radar_volume, moment_dict, grid_type_dict, h_roi, beam_inflation, missing_key, valid_key)
 
-    write_gridded_radar_ppi(output_file, radar_volume.time[1],
+    write_gridded_radar_ppi(output_file, index_time, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
         reference_latitude, reference_longitude, mean_heading)
     
 end
 
-function grid_radar_column(radar_volume, moment_dict, grid_type_dict, output_file,
+function grid_radar_column(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
     column_zmin, column_zincr, column_zdim, beam_inflation, power_threshold,
     missing_key::String="SQI", valid_key::String="DBZ")
 
@@ -280,7 +280,7 @@ function grid_radar_column(radar_volume, moment_dict, grid_type_dict, output_fil
     radar_grid, latlon_grid = grid_column(reference_latitude, reference_longitude, gridpoints,
         radar_volume, moment_dict, grid_type_dict, v_roi, beam_inflation, power_threshold, missing_key, valid_key)
 
-    write_gridded_radar_column(output_file, radar_volume.time[1],
+    write_gridded_radar_column(output_file, index_time, radar_volume.time[1],
         radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
         reference_latitude, reference_longitude)
 
@@ -972,18 +972,28 @@ function grid_column(reference_latitude::AbstractFloat, reference_longitude::Abs
     return radar_grid, latlon_grid
 end
 
-function write_gridded_radar_volume(file, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, mean_heading::AbstractFloat)
+function write_gridded_radar_volume(file, index_time, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, mean_heading::AbstractFloat)
 
     # Delete any pre-existing file
     rm(file, force=true)
     
     ds = NCDataset(file,"c", attrib = OrderedDict(
-        "Conventions"               => "CF-1.6",
-        "history"                   => "Created by Michael M. Bell using custom software",
-        "institution"               => "CSU",
-        "source"                    => "SEAPOL",
-        "title"                     => "PRELIMINARY Gridded Radar Data",
-        "comment"                   => "PRELIMINARY In-field Analysis. Please use with caution!",
+        "Conventions"               => "CF-1.12",
+        "history"                   => "v1.0",
+        "institution"               => "Colorado State University",
+        "source"                    => "CSU SEA-POL radar",
+        "instrument"                => "SEA-POL",
+        "title"                     => "Level 4 Gridded SEA-POL Radar Data",
+        "summary"                   => "Level 4 Gridded SEA-POL Radar Data",
+        "creator_name"              => "Michael M. Bell",
+        "creator_email"             => "mmbell@colostate.edu",
+        "creator_id"                => "https://orcid.org/0000-0002-0496-331X",
+        "project"                   => "PICCOLO, BOWTIE, ORCESTRA",
+        "platform"                  => "RV METEOR",
+        #"references"                => "Comma-separated list of URL/DOI to extended information",
+        "keywords"                  => "radar, precipitation, sea-pol",
+        "processing_level"          => "Level 4",
+        "license"                   => "CC-BY-4.0",        
     ))
     
     # Dimensions
@@ -1067,7 +1077,7 @@ function write_gridded_radar_volume(file, start_time, stop_time, gridpoints, rad
     ))
 
     # Using start time for now, but eventually need to use some reference time
-    nctime[:] = datetime2unix.(stop_time)
+    nctime[:] = datetime2unix.(index_time)
     ncstarttime[:] = datetime2unix.(start_time)
     ncstoptime[:] = datetime2unix.(stop_time)
     ncz[:] = gridpoints[:,1,1,1] 
@@ -1097,18 +1107,28 @@ function write_gridded_radar_volume(file, start_time, stop_time, gridpoints, rad
     close(ds)
 end
 
-function write_gridded_radar_rhi(file, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat)
+function write_gridded_radar_rhi(file, index_time, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat)
 
     # Delete any pre-existing file
     rm(file, force=true)
     
     ds = NCDataset(file,"c", attrib = OrderedDict(
-        "Conventions"               => "CF-1.6",
-        "history"                   => "Created by Michael M. Bell using custom software",
-        "institution"               => "CSU",
-        "source"                    => "SEAPOL",
-        "title"                     => "PRELIMINARY Gridded Radar Data",
-        "comment"                   => "PRELIMINARY In-field Analysis. Please use with caution!",
+        "Conventions"               => "CF-1.12",
+        "history"                   => "v1.0",
+        "institution"               => "Colorado State University",
+        "source"                    => "CSU SEA-POL radar",
+        "instrument"                => "SEA-POL",
+        "title"                     => "Level 4 Gridded SEA-POL Radar Data",
+        "summary"                   => "Level 4 Gridded SEA-POL Radar Data",
+        "creator_name"              => "Michael M. Bell",
+        "creator_email"             => "mmbell@colostate.edu",
+        "creator_id"                => "https://orcid.org/0000-0002-0496-331X",
+        "project"                   => "PICCOLO, BOWTIE, ORCESTRA",
+        "platform"                  => "RV METEOR",
+        #"references"                => "Comma-separated list of URL/DOI to extended information",
+        "keywords"                  => "radar, precipitation, sea-pol",
+        "processing_level"          => "Level 4",
+        "license"                   => "CC-BY-4.0",
     ))
     
     # Dimensions
@@ -1179,7 +1199,7 @@ function write_gridded_radar_rhi(file, start_time, stop_time, gridpoints, radar_
     ))
 
     # Using start time for now, but eventually need to use some reference time
-    nctime[:] = datetime2unix.(stop_time)
+    nctime[:] = datetime2unix.(index_time)
     ncstarttime[:] = datetime2unix.(start_time)
     ncstoptime[:] = datetime2unix.(stop_time)
     ncz[:] = gridpoints[:,1,1] 
@@ -1208,18 +1228,28 @@ function write_gridded_radar_rhi(file, start_time, stop_time, gridpoints, radar_
     close(ds)
 end
 
-function write_gridded_radar_ppi(file, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, mean_heading::AbstractFloat)
+function write_gridded_radar_ppi(file, index_time, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, mean_heading::AbstractFloat)
 
     # Delete any pre-existing file
     rm(file, force=true)
     
     ds = NCDataset(file,"c", attrib = OrderedDict(
-        "Conventions"               => "CF-1.6",
-        "history"                   => "Created by Michael M. Bell using custom software",
-        "institution"               => "CSU",
-        "source"                    => "SEAPOL",
-        "title"                     => "Gridded Radar Data v1.0",
-        "comment"                   => "Level 4 Gridded Radar Data"
+        "Conventions"               => "CF-1.12",
+        "history"                   => "v1.0",
+        "institution"               => "Colorado State University",
+        "source"                    => "CSU SEA-POL radar",
+        "instrument"                => "SEA-POL",
+        "title"                     => "Level 4 Gridded SEA-POL Radar Data",
+        "summary"                   => "Level 4 Gridded SEA-POL Radar Data",
+        "creator_name"              => "Michael M. Bell",
+        "creator_email"             => "mmbell@colostate.edu",
+        "creator_id"                => "https://orcid.org/0000-0002-0496-331X",
+        "project"                   => "PICCOLO, BOWTIE, ORCESTRA",
+        "platform"                  => "RV METEOR",
+        #"references"                => "Comma-separated list of URL/DOI to extended information",
+        "keywords"                  => "radar, precipitation, sea-pol",
+        "processing_level"          => "Level 4",
+        "license"                   => "CC-BY-4.0",
     ))
     
     # Dimensions
@@ -1294,7 +1324,7 @@ function write_gridded_radar_ppi(file, start_time, stop_time, gridpoints, radar_
     ))
 
     # Using start time for now, but eventually need to use some reference time
-    nctime[:] = datetime2unix.(stop_time)
+    nctime[:] = datetime2unix.(index_time)
     ncstarttime[:] = datetime2unix.(start_time)
     ncstoptime[:] = datetime2unix.(stop_time)
     ncy[:] = gridpoints[:,1,1] 
@@ -1324,7 +1354,7 @@ function write_gridded_radar_ppi(file, start_time, stop_time, gridpoints, radar_
     close(ds)
 end
 
-function write_gridded_radar_column(file, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat)
+function write_gridded_radar_column(file, index_time, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat)
 
     # Delete any pre-existing file
     rm(file, force=true)
@@ -1333,17 +1363,17 @@ function write_gridded_radar_column(file, start_time, stop_time, gridpoints, rad
         "Conventions"               => "CF-1.12",
         "history"                   => "v1.0",
         "institution"               => "Colorado State University",
-        "source"                    => "SEA-POL radar",
+        "source"                    => "CSU SEA-POL radar",
         "instrument"                => "SEA-POL",
-        "title"                     => "Level 4 Gridded SEA-POL Radar Quasi-Vertical Profile Data",
-        "summary"                   => "This is the QVP data from the SEA-POL radar",
+        "title"                     => "Level 4 Gridded SEA-POL Radar Data",
+        "summary"                   => "Level 4 Gridded SEA-POL Radar Data",
         "creator_name"              => "Michael M. Bell",
         "creator_email"             => "mmbell@colostate.edu",
         "creator_id"                => "https://orcid.org/0000-0002-0496-331X",
         "project"                   => "PICCOLO, BOWTIE, ORCESTRA",
         "platform"                  => "RV METEOR",
-        "references"                => "Comma-separated list of URL/DOI to extended information",
-        "keywords"                  => "Comma-separated list of keywords",
+        #"references"                => "Comma-separated list of URL/DOI to extended information",
+        "keywords"                  => "radar, precipitation, sea-pol",
         "processing_level"          => "Level 4",
         "license"                   => "CC-BY-4.0",
     ))
@@ -1408,7 +1438,7 @@ function write_gridded_radar_column(file, start_time, stop_time, gridpoints, rad
     ))
 
     # Using start time for now, but eventually need to use some reference time
-    nctime[:] = datetime2unix.(stop_time)
+    nctime[:] = datetime2unix.(index_time)
     ncstarttime[:] = datetime2unix.(start_time)
     ncstoptime[:] = datetime2unix.(stop_time)
     ncz[:] = gridpoints[:]
