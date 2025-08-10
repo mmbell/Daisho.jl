@@ -159,14 +159,14 @@ function threshold_dbz(volume, raw_moment_dict, qc_moments, qc_moment_dict,
     beam_info = get_beam_info(volume)
     # Check for dBZ values greater than the threshold
     for i in 1:size(raw_moments,1)
-        if ismissing(raw_moments[i,raw_moment_dict["DBZ"]])
+        if ismissing(raw_moments[i,raw_moment_dict["DBZ_QC_FINAL"]])
             continue
         end
         height = beam_info[i,4]
         count += 1
-        if (raw_moments[i,raw_moment_dict["DBZ"]] >= dbz_threshold)
+        if (raw_moments[i,raw_moment_dict["DBZ_QC_FINAL"]] >= dbz_threshold)
 
-            if (abs(raw_moments[i,raw_moment_dict["VEL"]]) <= vel_threshold
+            if (abs(raw_moments[i,raw_moment_dict["VEL_QC_FINAL"]]) <= vel_threshold
                 && raw_moments[i,raw_moment_dict["WIDTH"]] <= sw_threshold
                 && height < 500.0)
             #if height < 500.0
@@ -175,7 +175,7 @@ function threshold_dbz(volume, raw_moment_dict, qc_moments, qc_moment_dict,
                 #println("Likely clutter at $i  exceeding $(dbz_threshold) at height $(height) m")
                 #println(beam_info[i,:])
                 for key in keys(qc_moment_dict)
-                    if key == "SQI" || key == "PID_FOR_QC"
+                    if key == "SQI_FOR_MASK" || key == "PID_FOR_QC"
                         # Don't QC this field
                         continue
                     end
@@ -186,7 +186,7 @@ function threshold_dbz(volume, raw_moment_dict, qc_moments, qc_moment_dict,
                 real_count += 1
                 println("Maybe real at $i  exceeding $(dbz_threshold) at height $(height) m")
                 println(beam_info[i,:])
-                for key in keys(qc_moment_dict)
+                for key in keys(raw_moment_dict)
                     println("$key: $(raw_moments[i,raw_moment_dict[key]])")
                  end
             end
@@ -211,6 +211,31 @@ function threshold_dbz(volume, raw_moment_dict, qc_moments, qc_moment_dict,
 #
 #    end
 
+    return qc_moments
+
+end
+
+function threshold_height(volume, raw_moment_dict, qc_moments, qc_moment_dict,
+    height_threshold)
+
+    raw_moments = volume.moments
+    beam_info = get_beam_info(volume)
+    # Check for height values lower than the threshold
+    for i in 1:size(raw_moments,1)
+        if ismissing(raw_moments[i,raw_moment_dict["DBZ"]])
+            continue
+        end
+        height = beam_info[i,4]
+        if (height < height_threshold)
+            for key in keys(qc_moment_dict)
+                if key == "SQI_FOR_MASK" || key == "PID_FOR_QC"
+                    # Don't QC this field
+                    continue
+                end
+                qc_moments[i,:] .= missing
+            end
+        end
+    end
     return qc_moments
 
 end

@@ -49,9 +49,16 @@ function initialize_qc_fields(volume, raw_moment_dict, qc_moment_dict)
     # This loop assumes that all the QC moments originate as raw ones
     # This may or may not be a good assumption in the future, but need to create these fields somehow
     for key in keys(qc_moment_dict)
-        qc_moments[:, qc_moment_dict[key]] .= volume.moments[:,raw_moment_dict[key]]
+	#if key == "DBZ"
+#		qc_moments[:, qc_moment_dict[key]] .= volume.moments[:,raw_moment_dict["DBZ_QC_FINAL"]]
+#	elseif key == "VEL"
+#		qc_moments[:, qc_moment_dict[key]] .= volume.moments[:,raw_moment_dict["VEL_QC_FINAL"]]
+#	elseif key == "RATE_ZH"
+#		qc_moments[:, qc_moment_dict[key]] .= volume.moments[:,raw_moment_dict["RATE_ZH_QC_FINAL"]]
+#	else
+		qc_moments[:, qc_moment_dict[key]] .= volume.moments[:,raw_moment_dict[key]]
+#    	end
     end
-    
     return qc_moments
     
 end
@@ -1386,7 +1393,7 @@ function write_qced_cfradial_sigmet(file, qc_file, qc_moments, qc_moment_dict)
     ncSQI[:] = inputds["SQI"][:]
     ncPHIDP[:] = inputds["PHIDP"][:]
     ncSNR[:] = inputds["SNR"][:]
-    ncPID[:] = inputds["PID_FOR_QC"][:]
+    #ncPID[:] = inputds["PID_FOR_QC"][:]
     #ncUNKNOWN_ID_82[:] = inputds["UNKNOWN_ID_82"][:]
     
     # QCed variables
@@ -1397,8 +1404,8 @@ function write_qced_cfradial_sigmet(file, qc_file, qc_moments, qc_moment_dict)
     ncRHOHV_QC[:] = qc_moments[:, qc_moment_dict["RHOHV"]]
     ncPHIDP_QC[:] = qc_moments[:, qc_moment_dict["PHIDP"]]
     ncWIDTH_QC[:] = qc_moments[:, qc_moment_dict["WIDTH"]]
-    ncRATE_QC[:] = qc_moments[:, qc_moment_dict["RATE_CSU_BLENDED"]]
-    ncWIDTH_QC[:] = qc_moments[:, qc_moment_dict["HID_CSU"]]
+    #ncRATE_QC[:] = qc_moments[:, qc_moment_dict["RATE_CSU_BLENDED"]]
+    #ncWIDTH_QC[:] = qc_moments[:, qc_moment_dict["HID_CSU"]]
     #ncSMOOTH_SQI[:] = qc_moments[qc_moment_dict["SQI"],:]
     
     # Loop through the moments
@@ -2329,9 +2336,9 @@ function write_qced_cfradial(file, qc_file, qc_moments, qc_moment_dict)
         "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
     ))
     
-    ncRATE_CSU_BLENDED = defVar(ds,"RATE_CSU_BLENDED", Float32, ("range", "time"), attrib = OrderedDict(
-        "long_name"                 => "tropical_rain_rate_hybrid_of_zh_zzdr_kdp_and_kdpzdr",
-        "standard_name"             => "rain_rate_hybrid_of_zh_zzdr_kdp_and_kdpzdr",
+    ncRATE_ZH = defVar(ds,"RATE_ZH", Float32, ("range", "time"), attrib = OrderedDict(
+        "long_name"                 => "tropical_rain_rate_zr",
+        "standard_name"             => "rain_rate",
         "units"                     => "mm/hr",
         "sampling_ratio"            => Float32(1.0),
         "_FillValue"                => Float32(-9999.0),
@@ -2419,9 +2426,9 @@ function write_qced_cfradial(file, qc_file, qc_moments, qc_moment_dict)
         "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
     ))
     
-    ncSQI_L2 = defVar(ds,"SQI_L2", Float32, ("range", "time"), attrib = OrderedDict(
-        "long_name"                 => "SQI",
-        "standard_name"             => "SQI",
+    ncSQI_L2 = defVar(ds,"SQI_FOR_MASK", Float32, ("range", "time"), attrib = OrderedDict(
+        "long_name"                 => "SQI_FOR_MASK",
+        "standard_name"             => "SQI_FOR_MASK",
         "units"                     => "",
         "sampling_ratio"            => Float32(1.0),
         "_FillValue"                => Float32(-32768.0),
@@ -2620,34 +2627,34 @@ function write_qced_cfradial(file, qc_file, qc_moments, qc_moment_dict)
     #ncvertical_velocity[:] = inputds["vertical_velocity"][:]
     #ncheading_change_rate[:] = inputds["heading_change_rate"][:]
     #ncpitch_change_rate[:] = inputds["pitch_change_rate"][:]
-    ncDBZ[:] = inputds["DBZ"][:]
-    ncDBZ_ATTEN_UNCORRECTED[:] = inputds["DBZ_ATTEN_UNCORRECTED"][:]
-    ncDBZ_L2[:] = inputds["DBZ_L2"][:]
+    #ncDBZ[:] = inputds["DBZ"][:]
+    #ncDBZ_ATTEN_UNCORRECTED[:] = inputds["DBZ_ATTEN_UNCORRECTED"][:]
+    #ncDBZ_L2[:] = inputds["DBZ_L2"][:]
     ncDBZ_TOT[:] = inputds["DBZ_TOT"][:]
-    ncDBZ_TOT_L2[:] = inputds["DBZ_TOT_L2"][:]
-    ncHID_CSU[:] = inputds["HID_CSU"][:] 
-    ncKDP[:] = inputds["KDP"][:]
-    ncPHIDP[:] = inputds["PHIDP"][:]
-    ncPHIDP_L2[:] = inputds["PHIDP_L2"][:]
-    ncPID_FOR_QC[:] = inputds["PID_FOR_QC"][:]
-    ncRATE_CSU_BLENDED[:] = inputds["RATE_CSU_BLENDED"][:]
-    ncRATE_CSU_METHOD[:] = inputds["RATE_CSU_METHOD"][:]
-    ncRHOHV[:] = inputds["RHOHV"][:]
-    ncRHOHV_L2[:] = inputds["RHOHV_L2"][:]
-    ncRHOHV_NNC[:] = inputds["RHOHV_NNC"][:]
-    ncRHOHV_NNC_L2[:] = inputds["RHOHV_NNC_L2"][:]
+    #ncDBZ_TOT_L2[:] = inputds["DBZ_TOT_L2"][:]
+    #ncHID_CSU[:] = inputds["HID_CSU"][:] 
+    #ncKDP[:] = inputds["KDP"][:]
+    #ncPHIDP[:] = inputds["PHIDP"][:]
+    #ncPHIDP_L2[:] = inputds["PHIDP_L2"][:]
+    #ncPID_FOR_QC[:] = inputds["PID_FOR_QC"][:]
+    #ncRATE_CSU_BLENDED[:] = inputds["RATE_CSU_BLENDED"][:]
+    #ncRATE_CSU_METHOD[:] = inputds["RATE_CSU_METHOD"][:]
+    #ncRHOHV[:] = inputds["RHOHV"][:]
+    #ncRHOHV_L2[:] = inputds["RHOHV_L2"][:]
+    #ncRHOHV_NNC[:] = inputds["RHOHV_NNC"][:]
+    #ncRHOHV_NNC_L2[:] = inputds["RHOHV_NNC_L2"][:]
     ncSNR[:] = inputds["SNR"][:]
-    ncSNR_L2[:] = inputds["SNR_L2"][:]
+    #ncSNR_L2[:] = inputds["SNR_L2"][:]
     ncSQI[:] = inputds["SQI"][:]
-    ncSQI_L2[:] = inputds["SQI_L2"][:]
-    ncTEMP_FOR_PID[:] = inputds["TEMP_FOR_PID"][:]
-    ncVEL[:] = inputds["VEL"][:]
-    ncVEL_L2[:] = inputds["VEL_L2"][:]
-    ncWIDTH[:] = inputds["WIDTH"][:]
-    ncWIDTH_L2[:] = inputds["WIDTH_L2"][:]
-    ncZDR[:] = inputds["ZDR"][:]
-    ncZDR_ATTEN_UNCORRECTED[:] = inputds["ZDR_ATTEN_UNCORRECTED"][:] 
-    ncZDR_L2[:] = inputds["ZDR_L2"][:]
+    ncSQI_L2[:] = inputds["SQI_FOR_MASK"][:]
+    #ncTEMP_FOR_PID[:] = inputds["TEMP_FOR_PID"][:]
+    #ncVEL[:] = inputds["VEL"][:]
+    #ncVEL_L2[:] = inputds["VEL_L2"][:]
+    #ncWIDTH[:] = inputds["WIDTH"][:]
+    #ncWIDTH_L2[:] = inputds["WIDTH_L2"][:]
+    #ncZDR[:] = inputds["ZDR"][:]
+    #ncZDR_ATTEN_UNCORRECTED[:] = inputds["ZDR_ATTEN_UNCORRECTED"][:] 
+    #ncZDR_L2[:] = inputds["ZDR_L2"][:]
     
     # QCed variables
     ncDBZ[:] = qc_moments[:, qc_moment_dict["DBZ"]]
@@ -2657,8 +2664,8 @@ function write_qced_cfradial(file, qc_file, qc_moments, qc_moment_dict)
     ncRHOHV[:] = qc_moments[:, qc_moment_dict["RHOHV"]]
     ncPHIDP[:] = qc_moments[:, qc_moment_dict["PHIDP"]]
     ncWIDTH[:] = qc_moments[:, qc_moment_dict["WIDTH"]]
-    ncRATE_CSU_BLENDED[:] = qc_moments[:, qc_moment_dict["RATE_CSU_BLENDED"]]
-    ncHID_CSU[:] = qc_moments[:, qc_moment_dict["HID_CSU"]]
+    ncRATE_ZH[:] = qc_moments[:, qc_moment_dict["RATE_ZH"]]
+    #ncHID_CSU[:] = qc_moments[:, qc_moment_dict["HID_CSU"]]
     #ncSMOOTH_SQI[:] = qc_moments[qc_moment_dict["SQI"],:]
     
     # Loop through the moments

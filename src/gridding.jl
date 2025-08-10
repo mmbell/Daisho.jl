@@ -15,6 +15,7 @@ end
 function initialize_regular_grid(xmin, xincr, xdim, ymin, yincr, ydim)
 
     # Define and allocate a 2d regular grid
+    print("Allocating 2d regular grid with dimensions: y ", ydim, "x", xdim, "\n")
     regular_2d_grid = Array{Float64}(undef,ydim,xdim,2)
     for i in CartesianIndices(size(regular_2d_grid)[1:2])
         regular_2d_grid[i,1] = yincr * (i[1]-1) + ymin
@@ -211,8 +212,8 @@ function grid_radar_rhi(radar_volume, moment_dict, grid_type_dict, output_file, 
     radar_grid, latlon_grid = grid_rhi(reference_latitude, reference_longitude, gridpoints, 
         radar_volume, moment_dict, grid_type_dict, h_roi, v_roi, beam_inflation, power_threshold, missing_key, valid_key)
 
-    write_gridded_radar_rhi(output_file, index_time, radar_volume.time[1],
-        radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
+    write_gridded_radar_rhi(output_file, index_time, radar_volume,
+        gridpoints, radar_grid, latlon_grid, moment_dict,
         reference_latitude, reference_longitude)
     
 end
@@ -234,8 +235,8 @@ function grid_radar_ppi(radar_volume, moment_dict, grid_type_dict, output_file, 
     radar_grid, latlon_grid = grid_ppi(reference_latitude, reference_longitude, gridpoints, 
         radar_volume, moment_dict, grid_type_dict, h_roi, beam_inflation, power_threshold, missing_key, valid_key)
 
-    write_gridded_radar_ppi(output_file, index_time, radar_volume.time[1],
-        radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
+    write_gridded_radar_ppi(output_file, index_time, radar_volume,
+        gridpoints, radar_grid, latlon_grid, moment_dict,
         reference_latitude, reference_longitude, heading)
     
 end
@@ -257,8 +258,8 @@ function grid_radar_composite(radar_volume, moment_dict, grid_type_dict, output_
     radar_grid, latlon_grid = grid_composite(reference_latitude, reference_longitude, gridpoints, 
         radar_volume, moment_dict, grid_type_dict, h_roi, beam_inflation, missing_key, valid_key)
 
-    write_gridded_radar_ppi(output_file, index_time, radar_volume.time[1],
-        radar_volume.time[end], gridpoints, radar_grid, latlon_grid, moment_dict,
+    write_gridded_radar_ppi(output_file, index_time, radar_volume,
+        gridpoints, radar_grid, latlon_grid, moment_dict,
         reference_latitude, reference_longitude, mean_heading)
     
 end
@@ -393,6 +394,11 @@ function grid_volume(reference_latitude::AbstractFloat, reference_longitude::Abs
                     # Range weighting based on center of gridbox = 1.0 range_weight
                     gridpt_r = sin(sqrt(dx^2 + dy^2)/Reff) * (Reff + dz) / cos(gridpt_el)
                     range_weight = gridpt_r / r
+
+		    if abs(gridpt_r - r) > horizontal_roi || abs(gridpt_r - r) > vertical_roi
+                        # If the range is too far away from the grid center, set range_weight to 0
+                        range_weight = 0.0
+                    end
 
                     # Multiply weights so that center of beam is 1.0
                     total_weight = range_weight * angle_weight
@@ -559,6 +565,11 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
                     gridpt_r = sin(sqrt(dx^2 + dy^2)/Reff) * (Reff + dz) / cos(gridpt_el)
                     range_weight = gridpt_r / r
 
+		    if abs(gridpt_r - r) > horizontal_roi || abs(gridpt_r - r) > vertical_roi
+                        # If the range is too far away from the grid center, set range_weight to 0
+                        range_weight = 0.0
+                    end
+
                     # Multiply weights so that center of beam is 1.0
                     total_weight = range_weight * angle_weight
 
@@ -697,6 +708,11 @@ function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::Abstra
                 r = beams[gate,3]
                 gridpt_r = sqrt(dx^2 + dy^2)
                 range_weight = gridpt_r / r
+
+                if abs(gridpt_r - r) > horizontal_roi 
+                    # If the range is too far away from the grid center, set range_weight to 0
+                    range_weight = 0.0
+                end
 
                 # Multiply weights so that center of beam is 1.0
                 total_weight = range_weight * angle_weight
@@ -912,8 +928,14 @@ function grid_column(reference_latitude::AbstractFloat, reference_longitude::Abs
 
             # Range weighting based on center of gridbox = 1.0 range_weight
             gridpt_r = grid_z / cos(beams[gate,2])
-            range_weight = 1.0 - abs(gridpt_r - r) / 200.0
-            if range_weight < 0.0
+            range_weight = gridpt_r / r
+            #range_weight = 1.0 - abs(gridpt_r - r) / 200.0
+            #if range_weight < 0.0
+            #    range_weight = 0.0
+            #end
+
+	    if abs(gridpt_r - r) > vertical_roi
+             	# If the range is too far away from the grid center, set range_weight to 0
                 range_weight = 0.0
             end
 
@@ -1107,11 +1129,15 @@ function write_gridded_radar_volume(file, index_time, start_time, stop_time, gri
     close(ds)
 end
 
-function write_gridded_radar_rhi(file, index_time, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat)
+function write_gridded_radar_rhi(file, index_time, radar_volume, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat)
 
     # Delete any pre-existing file
     rm(file, force=true)
-    
+
+    start_time = radar_volume.time[1]
+    stop_time = radar_volume.time[end]
+    azimuth = radar_volume.azimuth[1]
+
     ds = NCDataset(file,"c", attrib = OrderedDict(
         "Conventions"               => "CF-1.12",
         "history"                   => "v1.0",
@@ -1198,10 +1224,16 @@ function write_gridded_radar_rhi(file, index_time, start_time, stop_time, gridpo
         "false_northing"            => 0.0,        
     ))
 
+    ncazimuth = defVar(ds,"azimuth", Float32, ("time",), attrib = OrderedDict(
+        "long_name"                 => "ray_azimuth_angle",
+        "units"                     => "degrees",
+    ))
+
     # Using start time for now, but eventually need to use some reference time
     nctime[:] = datetime2unix.(index_time)
     ncstarttime[:] = datetime2unix.(start_time)
     ncstoptime[:] = datetime2unix.(stop_time)
+    ncazimuth[:] = azimuth
     ncz[:] = gridpoints[:,1,1] 
     ncr[:] = gridpoints[1,:,2]
     nclat[:] = latlon_grid[:,1]' 
@@ -1228,11 +1260,15 @@ function write_gridded_radar_rhi(file, index_time, start_time, stop_time, gridpo
     close(ds)
 end
 
-function write_gridded_radar_ppi(file, index_time, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, mean_heading::AbstractFloat)
+function write_gridded_radar_ppi(file, index_time, radar_volume, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, mean_heading::AbstractFloat)
 
     # Delete any pre-existing file
     rm(file, force=true)
     
+    start_time = radar_volume.time[1]
+    stop_time = radar_volume.time[end]
+    scan_name = radar_volume.scan_name
+
     ds = NCDataset(file,"c", attrib = OrderedDict(
         "Conventions"               => "CF-1.12",
         "history"                   => "v1.0",
@@ -1250,6 +1286,7 @@ function write_gridded_radar_ppi(file, index_time, start_time, stop_time, gridpo
         "keywords"                  => "radar, precipitation, sea-pol",
         "processing_level"          => "Level 4",
         "license"                   => "CC-BY-4.0",
+	"scan_name"                 => scan_name
     ))
     
     # Dimensions
