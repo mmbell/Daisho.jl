@@ -239,3 +239,47 @@ function threshold_height(volume, raw_moment_dict, qc_moments, qc_moment_dict,
     return qc_moments
 
 end
+
+function threshold_terrain_height(volume, raw_moment_dict, qc_moments, qc_moment_dict, terrain_threshold, tile_dir)
+
+    # Moment data
+    raw_moments = volume.moments
+
+    # Set the reference to the first location in the volume, but could be a parameter
+    reference_latitude = volume.latitude[1]
+    reference_longitude = volume.longitude[1]
+
+    # Convert the relevant radar information to arrays
+    TM = CoordRefSystems.shift(TransverseMercator{1.0,reference_latitude,WGS84Latest}, lonₒ= reference_longitude)
+    grid_origin, radar_zyx, beams = radar_arrays(reference_latitude, reference_longitude, volume, TM)
+
+    # Load the SRTM tiles
+    tiles = read_srtm_elevation_multi(tile_dir)
+
+    Threads.@threads for i in 1:size(beams,1)
+
+        if ismissing(raw_moments[i,raw_moment_dict["SQI_FOR_MASK"]])
+            # In the blanking sector or out of range
+            continue
+        end
+
+        # Get the horizontal locations of every gate in Y, X dimension
+        surface_range = Reff * asin(beams[i,3] * cos(beams[i,2]) / (Reff + beams[i,4]))
+        y = grid_origin.y + (radar_zyx[i][2] + surface_range * cos(beams[i,1])) * 1u"m"
+        x = grid_origin.x + (radar_zyx[i][3] + surface_range * sin(beams[i,1])) * 1u"m"
+        #cartTM = convert(TM,Cartesian{WGS84Latest}(x, y))
+        #latlon = convert(LatLon,cartTM)
+        lat, lon = appx_inverse_projection(reference_latitude, reference_longitude, [ustrip.(y), ustrip.(x)])
+        #dtm_height = terrain_height(tile_dir, ustrip.(latlon.lat), ustrip.(latlon.lon))
+        dtm_height = terrain_height(tiles, lat, lon)
+        if (dtm_height > terrain_threshold)
+            #println("Gate $i over land at lat $(latlon.lat), lon $(latlon.lon), height $dtm_height m")
+            for key in keys(qc_moment_dict)
+                # Remove everything including SQI_FOR_MASK and PID_FOR_QC
+                qc_moments[i,:] .= missing
+            end
+        end
+    end
+
+    return qc_moments
+end

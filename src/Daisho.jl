@@ -12,6 +12,7 @@ const Reff = 4.0 * 6371000.0 / 3.0
 
 include("netcdf_parameters.jl")
 include("radar.jl")
+include("SRTM.jl")
 include("qualitycontrol.jl")
 include("gridding.jl")
 

@@ -2646,7 +2646,7 @@ function write_qced_cfradial(file, qc_file, qc_moments, qc_moment_dict)
     ncSNR[:] = inputds["SNR"][:]
     #ncSNR_L2[:] = inputds["SNR_L2"][:]
     ncSQI[:] = inputds["SQI"][:]
-    ncSQI_L2[:] = inputds["SQI_FOR_MASK"][:]
+    #ncSQI_L2[:] = inputds["SQI_FOR_MASK"][:]
     #ncTEMP_FOR_PID[:] = inputds["TEMP_FOR_PID"][:]
     #ncVEL[:] = inputds["VEL"][:]
     #ncVEL_L2[:] = inputds["VEL_L2"][:]
@@ -2666,7 +2666,7 @@ function write_qced_cfradial(file, qc_file, qc_moments, qc_moment_dict)
     ncWIDTH[:] = qc_moments[:, qc_moment_dict["WIDTH"]]
     ncRATE_ZH[:] = qc_moments[:, qc_moment_dict["RATE_ZH"]]
     #ncHID_CSU[:] = qc_moments[:, qc_moment_dict["HID_CSU"]]
-    #ncSMOOTH_SQI[:] = qc_moments[qc_moment_dict["SQI"],:]
+    ncSQI_L2[:] = qc_moments[:, qc_moment_dict["SQI_FOR_MASK"]]
     
     # Loop through the moments
     # This is for gridded data now but need to update for cfradial
