@@ -232,7 +232,7 @@ function threshold_height(volume, raw_moment_dict, qc_moments, qc_moment_dict,
                     # Don't QC this field
                     continue
                 end
-                qc_moments[i,:] .= missing
+                qc_moments[i,qc_moment_dict[key]] = missing
             end
         end
     end
@@ -262,7 +262,7 @@ function threshold_terrain_height(volume, raw_moment_dict, qc_moments, qc_moment
             # In the blanking sector or out of range
             continue
         end
-
+        dbz = raw_moments[i,raw_moment_dict["DBZ"]]
         # Get the horizontal locations of every gate in Y, X dimension
         surface_range = Reff * asin(beams[i,3] * cos(beams[i,2]) / (Reff + beams[i,4]))
         y = grid_origin.y + (radar_zyx[i][2] + surface_range * cos(beams[i,1])) * 1u"m"
@@ -272,11 +272,55 @@ function threshold_terrain_height(volume, raw_moment_dict, qc_moments, qc_moment
         lat, lon = appx_inverse_projection(reference_latitude, reference_longitude, [ustrip.(y), ustrip.(x)])
         #dtm_height = terrain_height(tile_dir, ustrip.(latlon.lat), ustrip.(latlon.lon))
         dtm_height = terrain_height(tiles, lat, lon)
+        az = 180.0 * beams[i,1] / pi
+        el = 180.0 * beams[i,2] / pi
+        range = beams[i,3]/1000.0
+        #if abs(az - 289.0) < 1.0 && abs(range - 17.0) < 0.5
+        #    println("Ray $i Az: $az El:$el, Range: $range over water! x: $(x), y: $(y), lat $(lat), lon $(lon), height: $(dtm_height), dBZ: $(dbz)")
+        #end
         if (dtm_height > terrain_threshold)
             #println("Gate $i over land at lat $(latlon.lat), lon $(latlon.lon), height $dtm_height m")
             for key in keys(qc_moment_dict)
                 # Remove everything including SQI_FOR_MASK and PID_FOR_QC
-                qc_moments[i,:] .= missing
+                qc_moments[i,qc_moment_dict[key]] = missing
+            end
+        elseif !ismissing(dbz) && (dbz >= 50.0)
+            #println("High dBZ gate Az: $az El:$el over water! x: $(x), y: $(y), height: $(dtm_height), dBZ: $(dbz)")
+        end
+    end
+
+    return qc_moments
+end
+
+function add_azimuthal_offset(volume, az_offset)
+
+    # Add constant offset to azimuth
+    volume.azimuth[:] .= volume.azimuth[:] .+ az_offset
+    return volume.azimuth[:]
+
+end
+
+function mask_sector(volume, raw_moment_dict, qc_moments, qc_moment_dict, heading, az_min, az_max)
+
+    # Mask data between two heading relative azimuths
+    # Create an array with all the relevant beam info
+    beams = [ (heading[j], volume.azimuth[j])
+            for i in eachindex(volume.range), j in eachindex(volume.elevation) ]
+    beams = [ beams[i][j] for i in eachindex(beams), j in 1:2]
+    for i in 1:size(qc_moments,1)
+        if ismissing(qc_moments[i,qc_moment_dict["SQI_FOR_MASK"]])
+            # Already in the blanking sector or out of range
+            continue
+        end
+        az = beams[i,2] - beams[i,1]
+        if (az < 0.0)
+            az += 360.0
+        end
+        if (az >= az_min) && (az <= az_max)
+            #println("Gate $i over land at lat $(latlon.lat), lon $(latlon.lon), height $dtm_height m")
+            for key in keys(qc_moment_dict)
+                # Remove everything including SQI_FOR_MASK and PID_FOR_QC
+                qc_moments[i,qc_moment_dict[key]] = missing
             end
         end
     end
