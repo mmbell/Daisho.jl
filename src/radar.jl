@@ -2355,6 +2355,16 @@ function write_qced_cfradial(file, qc_file, qc_moments, qc_moment_dict)
         "grid_mapping"              => "grid_mapping",
         "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
     ))
+
+    ncRATE_CSU_BLENDED = defVar(ds,"RATE_CSU_BLENDED", Int16, ("range", "time"), attrib = OrderedDict(
+        "long_name"                 => "tropical_rainfall_method",
+        "standard_name"             => "rainfall_method",
+        "units"                     => "",
+        "sampling_ratio"            => Float32(1.0),
+        "_FillValue"                => Int16(-9999),
+        "grid_mapping"              => "grid_mapping",
+        "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
+    ))
     
     ncRHOHV = defVar(ds,"RHOHV", Float32, ("range", "time"), attrib = OrderedDict(
         "long_name"                 => "RHOHV_noiserem_level3",
@@ -2666,6 +2676,7 @@ function write_qced_cfradial(file, qc_file, qc_moments, qc_moment_dict)
     ncWIDTH[:] = qc_moments[:, qc_moment_dict["WIDTH"]]
     ncRATE_ZH[:] = qc_moments[:, qc_moment_dict["RATE_ZH"]]
     #ncHID_CSU[:] = qc_moments[:, qc_moment_dict["HID_CSU"]]
+    #ncRATE_CSU_BLENDED[:] = qc_moments[:, qc_moment_dict["RATE_CSU_BLENDED"]]
     ncSQI_L2[:] = qc_moments[:, qc_moment_dict["SQI_FOR_MASK"]]
     
     # Loop through the moments
