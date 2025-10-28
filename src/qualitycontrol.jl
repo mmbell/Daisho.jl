@@ -92,6 +92,47 @@ function despeckle(speckle, moments, moment_dict, n_gates, n_rays)
     
 end
 
+function despeckle_azimuthal(speckle, moments, moment_dict, n_gates, n_rays)
+
+    # Despeckle a volume of data in the azimuthal direction
+    0 < speckle || error("Speckle definition must be greater than 0")
+    n_moments = length(moment_dict)
+    for m in 1:n_moments
+        moment_data = reshape(moments[:,m],n_gates,n_rays)
+        for i in 1:n_gates
+            ringdata = moment_data[i,:]
+            n = 1
+            while n < n_rays
+                if !ismissing(ringdata[n])
+                    # Found a good gate, go forward to look for missing
+                    feature_size = 0
+                    s = n
+                    while (n < n_rays) && !ismissing(ringdata[n])
+                        n += 1
+                        feature_size += 1
+                    end
+
+                    if feature_size > speckle
+                        # Feature is larger than a speckle
+                        continue
+                    end
+
+                    while (s < n_rays) && (s <= n)
+                        moment_data[i,s] = missing
+                        s += 1
+                    end
+                else
+                    n += 1
+                end
+            end
+        end
+        moments[:,m] .= moment_data[:]
+    end
+
+    return moments
+
+end
+
 function stddev_phidp_threshold(moments, moment_dict, n_gates, n_rays, window = 11, threshold = 12)
 
     # Use a standard deviation of phidp to threshold
@@ -159,14 +200,14 @@ function threshold_dbz(volume, raw_moment_dict, qc_moments, qc_moment_dict,
     beam_info = get_beam_info(volume)
     # Check for dBZ values greater than the threshold
     for i in 1:size(raw_moments,1)
-        if ismissing(raw_moments[i,raw_moment_dict["DBZ_QC_FINAL"]])
+        if ismissing(raw_moments[i,raw_moment_dict["DBZ"]])
             continue
         end
         height = beam_info[i,4]
         count += 1
-        if (raw_moments[i,raw_moment_dict["DBZ_QC_FINAL"]] >= dbz_threshold)
+        if (raw_moments[i,raw_moment_dict["DBZ"]] >= dbz_threshold)
 
-            if (abs(raw_moments[i,raw_moment_dict["VEL_QC_FINAL"]]) <= vel_threshold
+            if (abs(raw_moments[i,raw_moment_dict["VEL"]]) <= vel_threshold
                 && raw_moments[i,raw_moment_dict["WIDTH"]] <= sw_threshold
                 && height < 500.0)
             #if height < 500.0
@@ -256,6 +297,9 @@ function threshold_terrain_height(volume, raw_moment_dict, qc_moments, qc_moment
     # Load the SRTM tiles
     tiles = read_srtm_elevation_multi(tile_dir)
 
+    # Use the GMT database
+    #land_lon,land_lat,land_data = GeoDatasets.landseamask(;resolution='f',grid=5)
+
     Threads.@threads for i in 1:size(beams,1)
 
         if ismissing(raw_moments[i,raw_moment_dict["SQI_FOR_MASK"]])
@@ -270,7 +314,13 @@ function threshold_terrain_height(volume, raw_moment_dict, qc_moments, qc_moment
         #cartTM = convert(TM,Cartesian{WGS84Latest}(x, y))
         #latlon = convert(LatLon,cartTM)
         lat, lon = appx_inverse_projection(reference_latitude, reference_longitude, [ustrip.(y), ustrip.(x)])
-        #dtm_height = terrain_height(tile_dir, ustrip.(latlon.lat), ustrip.(latlon.lon))
+
+        ## `round(Int, ...)` is used to find the nearest integer index
+        ##idx_lon = round(Int, (lon - land_lon[1]) / (land_lon[2] - land_lon[1])) + 1
+        ##idx_lat = round(Int, (lat - land_lat[1]) / (land_lat[2] - land_lat[1])) + 1
+        ## Look up the value in the data grid
+        ##dtm_height= land_data[idx_lon, idx_lat]
+
         dtm_height = terrain_height(tiles, lat, lon)
         az = 180.0 * beams[i,1] / pi
         el = 180.0 * beams[i,2] / pi
@@ -300,7 +350,7 @@ function add_azimuthal_offset(volume, az_offset)
 
 end
 
-function mask_sector(volume, raw_moment_dict, qc_moments, qc_moment_dict, heading, az_min, az_max)
+function mask_sector(volume, raw_moment_dict, qc_moments, qc_moment_dict, heading, az_min, az_max, mask_key)
 
     # Mask data between two heading relative azimuths
     # Create an array with all the relevant beam info
@@ -308,7 +358,7 @@ function mask_sector(volume, raw_moment_dict, qc_moments, qc_moment_dict, headin
             for i in eachindex(volume.range), j in eachindex(volume.elevation) ]
     beams = [ beams[i][j] for i in eachindex(beams), j in 1:2]
     for i in 1:size(qc_moments,1)
-        if ismissing(qc_moments[i,qc_moment_dict["SQI_FOR_MASK"]])
+        if ismissing(qc_moments[i,qc_moment_dict[mask_key]])
             # Already in the blanking sector or out of range
             continue
         end
@@ -316,8 +366,11 @@ function mask_sector(volume, raw_moment_dict, qc_moments, qc_moment_dict, headin
         if (az < 0.0)
             az += 360.0
         end
+        if (az > 360.0)
+            az -= 360.0
+        end
         if (az >= az_min) && (az <= az_max)
-            #println("Gate $i over land at lat $(latlon.lat), lon $(latlon.lon), height $dtm_height m")
+            #println("Gate $i in blanking sector at heading-relative $az (earth-relative $(beams[i,2]))")
             for key in keys(qc_moment_dict)
                 # Remove everything including SQI_FOR_MASK and PID_FOR_QC
                 qc_moments[i,qc_moment_dict[key]] = missing
