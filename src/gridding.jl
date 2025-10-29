@@ -181,8 +181,14 @@ function grid_radar_latlon_volume(radar_volume, moment_dict, grid_type_dict, out
     # This array is slightly different than Springsteel spectral arrays, need to reconcile later
     gridpoints = initialize_regular_grid(reference_latitude, reference_longitude, lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim)
 
-    h_roi = 111.0 * degincr * 0.75
-    v_roi = 111.0 * degincr * 0.75
+    latrad = reference_latitude * pi/180.0
+    fac_lat = 111.13209 - 0.56605 * cos(2.0 * latrad)
+        + 0.00012 * cos(4.0 * latrad) - 0.000002 * cos(6.0 * latrad)
+    fac_lon = 111.41513 * cos(latrad)
+        - 0.09455 * cos(3.0 * latrad) + 0.00012 * cos(5.0 * latrad)
+
+    h_roi = fac_lon * 1000.0 * degincr * 0.75
+    v_roi = fac_lat * 1000.0 * degincr * 0.75
 
     radar_grid, latlon_grid = grid_volume(reference_latitude, reference_longitude, gridpoints, 
         radar_volume, moment_dict, grid_type_dict, h_roi, v_roi, beam_inflation, power_threshold,
