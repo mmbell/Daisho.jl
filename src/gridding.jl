@@ -186,9 +186,9 @@ function grid_radar_latlon_volume(radar_volume, moment_dict, grid_type_dict, out
         + 0.00012 * cos(4.0 * latrad) - 0.000002 * cos(6.0 * latrad)
     fac_lon = 111.41513 * cos(latrad)
         - 0.09455 * cos(3.0 * latrad) + 0.00012 * cos(5.0 * latrad)
-
-    h_roi = fac_lon * 1000.0 * degincr * 0.75
-    v_roi = fac_lat * 1000.0 * degincr * 0.75
+    deg_km = sqrt(fac_lat^2 + fac_lon^2)
+    h_roi = deg_km * 1000.0 * degincr * 0.75
+    v_roi = zincr * 0.75
 
     radar_grid, latlon_grid = grid_volume(reference_latitude, reference_longitude, gridpoints, 
         radar_volume, moment_dict, grid_type_dict, h_roi, v_roi, beam_inflation, power_threshold,
