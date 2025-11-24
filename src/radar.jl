@@ -3617,22 +3617,22 @@ function write_qced_cfradial_dualpol(file, qc_file, qc_moments, qc_moment_dict)
         "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
     ))
     
-    ncRATE_CSU_METHOD = defVar(ds,"RATE_CSU_METHOD", Int16, ("range", "time"), attrib = OrderedDict(
+    ncRATE_CSU_METHOD = defVar(ds,"RATE_CSU_METHOD", Float32, ("range", "time"), attrib = OrderedDict(
         "long_name"                 => "tropical_rainfall_method",
         "standard_name"             => "rainfall_method",
         "units"                     => "",
         "sampling_ratio"            => Float32(1.0),
-        "_FillValue"                => Int16(-9999),
+        "_FillValue"                => Float32(-9999.0),
         "grid_mapping"              => "grid_mapping",
         "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
     ))
 
-    ncRATE_CSU_BLENDED = defVar(ds,"RATE_CSU_BLENDED", Int16, ("range", "time"), attrib = OrderedDict(
+    ncRATE_CSU_BLENDED = defVar(ds,"RATE_CSU_BLENDED", Float32, ("range", "time"), attrib = OrderedDict(
         "long_name"                 => "tropical_rainfall_method",
         "standard_name"             => "rainfall_method",
         "units"                     => "",
         "sampling_ratio"            => Float32(1.0),
-        "_FillValue"                => Int16(-9999),
+        "_FillValue"                => Float32(-9999.0),
         "grid_mapping"              => "grid_mapping",
         "coordinates"               => "elevation azimuth range heading roll pitch rotation tilt",
     ))
