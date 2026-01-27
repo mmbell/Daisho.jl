@@ -207,7 +207,7 @@ function grid_radar_rhi(radar_volume, moment_dict, grid_type_dict, output_file, 
     # Set the reference to the first location in the volume, but could be a parameter
     reference_latitude = radar_volume.latitude[1]
     reference_longitude = radar_volume.longitude[1]
-    
+
     # Initialize the gridpoints
     # This array is slightly different than Springsteel spectral arrays, need to reconcile later
     gridpoints = initialize_regular_grid(rmin, rincr, rdim, rhi_zmin, rhi_zincr, rhi_zdim)
@@ -401,7 +401,7 @@ function grid_volume(reference_latitude::AbstractFloat, reference_longitude::Abs
                     gridpt_r = sin(sqrt(dx^2 + dy^2)/Reff) * (Reff + dz) / cos(gridpt_el)
                     range_weight = gridpt_r / r
 
-		    if abs(gridpt_r - r) > horizontal_roi || abs(gridpt_r - r) > vertical_roi
+		            if abs(gridpt_r - r) > horizontal_roi || abs(gridpt_r - r) > vertical_roi
                         # If the range is too far away from the grid center, set range_weight to 0
                         range_weight = 0.0
                     end
@@ -472,7 +472,7 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
     TM = CoordRefSystems.shift(TransverseMercator{1.0,reference_latitude,WGS84Latest}, lonₒ= reference_longitude)
     grid_origin, radar_zyx, beams = radar_arrays(reference_latitude, reference_longitude, radar_volume, TM)
 
-    # Create a balltree that has horizontal locations of every gate in Y, X dimension
+    # Create a balltree that has horizontal locations of every gate in Z, X dimension
     balltree = radar_balltree_r(radar_volume, radar_zyx, beams)
 
     # Allocate the grid for the radar moments and the weights for each radar gate
@@ -483,14 +483,19 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
     # Allocate a regular latlon grid for the map
     latlon_grid = Array{Float64}(undef,size(gridpoints,2),2)
 
+    # Get the RHI azimuth
+    azimuth_rhi = deg2rad(radar_volume.azimuth[1])
+
     # Loop through the horizontal indices then do each column
     Threads.@threads for i in 1:size(gridpoints)[2]
 
         # Calculate the lat, lon of the gridpoint
-        yx_point = gridpoints[1,i,1:2]
+        r_point = gridpoints[1,i,2]
+        y_point = r_point * cos(azimuth_rhi)
+        x_point = r_point * sin(azimuth_rhi)
 
         # Using CoordRefSystems pure Julia transform, the Proj.jl wrapper was significantly slower for unknown reasons
-        cartTM = convert(TM,Cartesian{WGS84Latest}(grid_origin.x + yx_point[2]u"m", grid_origin.y + yx_point[1]u"m"))
+        cartTM = convert(TM,Cartesian{WGS84Latest}(grid_origin.x + (x_point)u"m", grid_origin.y + (y_point)u"m"))
         latlon = convert(LatLon,cartTM)
         latlon_grid[i,1] = ustrip(latlon.lat)
         latlon_grid[i,2] = ustrip(latlon.lon)
@@ -498,7 +503,7 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
         # Find the points within the radius of influence of the horizontal gridpoint
         eff_h_radius_influence = horizontal_roi
         eff_v_radius_influence = vertical_roi
-        origin_dist = euclidean(yx_point, [0.0, 0.0])
+        origin_dist = euclidean(r_point, [0.0])
         if beam_inflation > 0.0
             # No beam inflation in horizontal in this case since we are gridding in range
             eff_v_radius_influence = max(beam_inflation * origin_dist, vertical_roi)
@@ -552,8 +557,8 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
                     end
 
                     # Don't need azimuth, just dx and dy to get the surface range
-                    dx = yx_point[2] - radar_zyx[gate][3]
-                    dy = yx_point[1] - radar_zyx[gate][2]
+                    dx = x_point - radar_zyx[gate][3]
+                    dy = y_point - radar_zyx[gate][2]
 
                     # Calculate the spherical angle difference using Haversine formula
                     angle_diff = spherical_angle([beams[gate,1], beams[gate,2]], 
@@ -571,7 +576,7 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
                     gridpt_r = sin(sqrt(dx^2 + dy^2)/Reff) * (Reff + dz) / cos(gridpt_el)
                     range_weight = gridpt_r / r
 
-		    if abs(gridpt_r - r) > horizontal_roi || abs(gridpt_r - r) > vertical_roi
+		            if abs(gridpt_r - r) > horizontal_roi || abs(gridpt_r - r) > vertical_roi
                         # If the range is too far away from the grid center, set range_weight to 0
                         range_weight = 0.0
                     end
