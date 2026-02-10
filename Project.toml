@@ -25,5 +25,6 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
 ArchGDAL = "0.10.4"
+Makie = "0.24.8"
 Printf = "1.11.0"
-Rasters = "0.13.1"
+Rasters = "0.14.7"
