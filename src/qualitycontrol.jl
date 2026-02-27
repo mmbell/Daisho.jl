@@ -13,13 +13,39 @@ function fix_SEAPOL_RHOHV!(volume, moment_dict)
 
 end
 
+function threshold_qc(raw_moments, raw_moment_dict, qc_moments, qc_moment_dict, threshold_field::String, threshold_value::Float64, missing_key::String, below = true)
+
+    # Probably faster/better to do a logical indexing mask by gate
+    # rather than looping through all of these keys to do the same thing
+    # but brute force for now
+    for key in keys(qc_moment_dict)
+
+        if key == missing_key
+            # Don't QC this field
+            continue
+        end
+
+        if below
+            # Less than for SQI, SNR, RHOHV
+            qc_moments[:,qc_moment_dict[key]] = ifelse.(isless.(raw_moments[:,raw_moment_dict[threshold_field]],threshold_value),
+                missing, qc_moments[:,qc_moment_dict[key]])
+        else
+            # Greater than for spectrum width
+            qc_moments[:,qc_moment_dict[key]] = ifelse.(isless.(raw_moments[:,raw_moment_dict[threshold_field]],threshold_value),
+                qc_moments[:,qc_moment_dict[key]], missing)
+        end
+    end
+
+    return qc_moments
+end
+
 function threshold_qc(raw_moments, raw_moment_dict, qc_moments, qc_moment_dict,
     sqi_threshold, snr_threshold, rhohv_threshold, spec_width_threshold)
 
-    # Probably faster/better to do a logical indexing mask by gate 
+    # Probably faster/better to do a logical indexing mask by gate
     # rather than looping through all of these keys to do the same thing
     for key in keys(qc_moment_dict)
-        
+
         if key == "SQI" || key == "PHIDP"
             # Don't QC this field
             continue
@@ -47,8 +73,7 @@ function smooth_sqi(sqi)
 
     # Smooth the SQI with a Gaussian kernel
     # This function helps to remove second trip echo
-    
-    
+    # Not yet mplemented
 end
 
 function despeckle(speckle, moments, moment_dict, n_gates, n_rays)
@@ -70,12 +95,12 @@ function despeckle(speckle, moments, moment_dict, n_gates, n_rays)
                         n += 1
                         feature_size += 1
                     end
-                    
+
                     if feature_size > speckle
                         # Feature is larger than a speckle
                         continue
                     end
-                    
+
                     while (s < n_gates) && (s <= n)
                         moment_data[s,i] = missing
                         s += 1
@@ -89,7 +114,7 @@ function despeckle(speckle, moments, moment_dict, n_gates, n_rays)
     end
 
     return moments
-    
+
 end
 
 function despeckle_azimuthal(speckle, moments, moment_dict, n_gates, n_rays)
@@ -240,7 +265,7 @@ function threshold_dbz(volume, raw_moment_dict, qc_moments, qc_moment_dict,
     end
 
 #    for key in keys(qc_moment_dict)
-#        
+#
 #        if key == "SQI" || key == "PHIDP"
 #            # Don't QC this field
 #            continue
@@ -297,9 +322,6 @@ function threshold_terrain_height(volume, raw_moment_dict, qc_moments, qc_moment
     # Load the SRTM tiles
     tiles = read_srtm_elevation_multi(tile_dir)
 
-    # Use the GMT database
-    #land_lon,land_lat,land_data = GeoDatasets.landseamask(;resolution='f',grid=5)
-
     Threads.@threads for i in 1:size(beams,1)
 
         if ismissing(raw_moments[i,raw_moment_dict["SQI_FOR_MASK"]])
@@ -314,12 +336,6 @@ function threshold_terrain_height(volume, raw_moment_dict, qc_moments, qc_moment
         #cartTM = convert(TM,Cartesian{WGS84Latest}(x, y))
         #latlon = convert(LatLon,cartTM)
         lat, lon = appx_inverse_projection(reference_latitude, reference_longitude, [ustrip.(y), ustrip.(x)])
-
-        ## `round(Int, ...)` is used to find the nearest integer index
-        ##idx_lon = round(Int, (lon - land_lon[1]) / (land_lon[2] - land_lon[1])) + 1
-        ##idx_lat = round(Int, (lat - land_lat[1]) / (land_lat[2] - land_lat[1])) + 1
-        ## Look up the value in the data grid
-        ##dtm_height= land_data[idx_lon, idx_lat]
 
         dtm_height = terrain_height(tiles, lat, lon)
         az = 180.0 * beams[i,1] / pi
@@ -346,6 +362,8 @@ function add_azimuthal_offset(volume, az_offset)
 
     # Add constant offset to azimuth
     volume.azimuth[:] .= volume.azimuth[:] .+ az_offset
+    # Ensure azimuth is between 0.0 and 360.0
+    volume.azimuth[:] .= mod.(volume.azimuth[:], 360.0)
     return volume.azimuth[:]
 
 end
