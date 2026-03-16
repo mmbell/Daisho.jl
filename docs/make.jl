@@ -14,6 +14,7 @@ makedocs(
             "guide/radar_io.md",
             "guide/quality_control.md",
             "guide/gridding.md",
+            "guide/spectral_gridding.md",
             "guide/srtm.md",
         ],
         "Theory" => [

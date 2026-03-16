@@ -7,6 +7,7 @@ using NearestNeighbors
 using CoordRefSystems
 using Unitful
 using Rasters
+using Springsteel
 
 # Load test helpers
 include("test_helpers.jl")
@@ -17,4 +18,5 @@ include("test_helpers.jl")
     include("test_qualitycontrol.jl")
     include("test_srtm.jl")
     include("test_gridding.jl")
+    include("test_springsteel.jl")
 end

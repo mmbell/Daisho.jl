@@ -1,2 +1,4 @@
 [deps]
+Daisho = "0095e6a3-0a19-4629-8616-db2ab031b187"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Springsteel = "66b52f22-0fad-4358-9559-2105d4560aaf"
