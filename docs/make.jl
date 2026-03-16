@@ -24,3 +24,9 @@ makedocs(
     ],
     checkdocs = :none,
 )
+
+deploydocs(
+    repo = "github.com/csu-tropical/Daisho.jl.git",
+    devbranch = "main",
+    push_preview = true,
+)
