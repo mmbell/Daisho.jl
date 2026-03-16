@@ -233,14 +233,24 @@ end
 function get_radar_orientation(file)
 
     inputds = NCDataset(file)
-    heading = inputds["heading"]
-    headingdata = heading[:]
+    num_rays = length(inputds["azimuth"])
+    headingdata = fill(NaN, num_rays)
+    pitchdata = fill(NaN, num_rays)
+    rolldata = fill(NaN, num_rays)
+    if haskey(inputds,"heading")
+        heading = inputds["heading"]
+        headingdata = heading[:]
+    end
 
-    pitch = inputds["pitch"]
-    pitchdata = pitch[:]
+    if haskey(inputds,"pitch")
+        pitch = inputds["pitch"]
+        pitchdata = pitch[:]
+    end
 
-    roll = inputds["roll"]
-    rolldata = roll[:]
+    if haskey(inputds,"roll")
+        roll = inputds["roll"]
+        rolldata = roll[:]
+    end
     return [headingdata pitchdata rolldata]
 end
 
