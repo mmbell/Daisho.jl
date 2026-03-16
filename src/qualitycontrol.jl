@@ -1,5 +1,21 @@
 # Quality Control functions
 
+"""
+    fix_SEAPOL_RHOHV!(volume, moment_dict)
+
+Correct artificially high RHOHV values in SEA-POL radar data caused by noise subtraction.
+
+The LROSE conversion adds a bias of 128 and shifts by -32768 to the RHOHV field stored in
+`UNKNOWN_ID_82`. This function recovers the original RHOHV by adding 32640, then rescaling
+to the range [0, 1] via `(value - 1) / 65533`.
+
+# Arguments
+- `volume`: Radar volume object containing a `moments` matrix.
+- `moment_dict::Dict{String, Int}`: Dictionary mapping moment names to column indices in `volume.moments`.
+
+# Returns
+Nothing. The `volume.moments` RHOHV column is modified in place.
+"""
 function fix_SEAPOL_RHOHV!(volume, moment_dict)
 
     # SEAPOL RHOHV has artificially high RHOHV due to noise subtraction
@@ -13,6 +29,28 @@ function fix_SEAPOL_RHOHV!(volume, moment_dict)
 
 end
 
+"""
+    threshold_qc(raw_moments, raw_moment_dict, qc_moments, qc_moment_dict, threshold_field, threshold_value, missing_key, below=true) -> Matrix
+
+Apply a single-field threshold to quality-control radar moment data.
+
+Gates where the `threshold_field` value falls below (or above, depending on `below`)
+`threshold_value` are set to `missing` in the QC moments matrix. The field named by
+`missing_key` is excluded from thresholding.
+
+# Arguments
+- `raw_moments::Matrix`: Raw radar moment data matrix (gates x moments).
+- `raw_moment_dict::Dict{String, Int}`: Dictionary mapping raw moment names to column indices.
+- `qc_moments::Matrix`: QC radar moment data matrix to be modified (gates x moments).
+- `qc_moment_dict::Dict{String, Int}`: Dictionary mapping QC moment names to column indices.
+- `threshold_field::String`: Name of the moment field to threshold on (e.g., `"SQI"`, `"SNR"`).
+- `threshold_value::Float64`: Threshold value for the specified field.
+- `missing_key::String`: Name of a moment field to skip (not apply thresholding to).
+- `below::Bool`: If `true` (default), gates with values below the threshold are set to `missing`. If `false`, gates above the threshold are set to `missing`.
+
+# Returns
+- `Matrix`: The modified `qc_moments` matrix with thresholded gates set to `missing`.
+"""
 function threshold_qc(raw_moments, raw_moment_dict, qc_moments, qc_moment_dict, threshold_field::String, threshold_value::Float64, missing_key::String, below = true)
 
     # Probably faster/better to do a logical indexing mask by gate
@@ -39,6 +77,28 @@ function threshold_qc(raw_moments, raw_moment_dict, qc_moments, qc_moment_dict, 
     return qc_moments
 end
 
+"""
+    threshold_qc(raw_moments, raw_moment_dict, qc_moments, qc_moment_dict, sqi_threshold, snr_threshold, rhohv_threshold, spec_width_threshold) -> Matrix
+
+Apply multiple standard quality-control thresholds to radar moment data simultaneously.
+
+Gates are set to `missing` where SQI, SNR, or RHOHV fall below their respective thresholds,
+or where spectrum width exceeds `spec_width_threshold`. The `"SQI"` and `"PHIDP"` fields are
+excluded from thresholding.
+
+# Arguments
+- `raw_moments::Matrix`: Raw radar moment data matrix (gates x moments).
+- `raw_moment_dict::Dict{String, Int}`: Dictionary mapping raw moment names to column indices.
+- `qc_moments::Matrix`: QC radar moment data matrix to be modified (gates x moments).
+- `qc_moment_dict::Dict{String, Int}`: Dictionary mapping QC moment names to column indices.
+- `sqi_threshold`: Minimum signal quality index; gates below this are set to `missing`.
+- `snr_threshold`: Minimum signal-to-noise ratio; gates below this are set to `missing`.
+- `rhohv_threshold`: Minimum cross-correlation coefficient; gates below this are set to `missing`.
+- `spec_width_threshold`: Maximum spectrum width; gates above this are set to `missing`.
+
+# Returns
+- `Matrix`: The modified `qc_moments` matrix with thresholded gates set to `missing`.
+"""
 function threshold_qc(raw_moments, raw_moment_dict, qc_moments, qc_moment_dict,
     sqi_threshold, snr_threshold, rhohv_threshold, spec_width_threshold)
 
@@ -69,13 +129,45 @@ function threshold_qc(raw_moments, raw_moment_dict, qc_moments, qc_moment_dict,
 
 end
 
+"""
+    smooth_sqi(sqi)
+
+Smooth the Signal Quality Index (SQI) field using a Gaussian kernel to help remove second-trip echo.
+
+!!! warning
+    This function is not yet implemented and will throw an error if called.
+
+# Arguments
+- `sqi`: SQI data array to be smoothed.
+
+# Returns
+Not yet implemented.
+"""
 function smooth_sqi(sqi)
 
     # Smooth the SQI with a Gaussian kernel
     # This function helps to remove second trip echo
-    # Not yet mplemented
+    error("smooth_sqi is not yet implemented")
 end
 
+"""
+    despeckle(speckle, moments, moment_dict, n_gates, n_rays) -> Matrix
+
+Remove small isolated features (speckle) from radar moment data along each radial (range direction).
+
+For each ray, contiguous non-missing segments shorter than or equal to `speckle` gates are
+set to `missing` across all moment fields.
+
+# Arguments
+- `speckle::Int`: Maximum feature size (in gates) to be considered speckle and removed. Must be > 0.
+- `moments::Matrix`: Radar moment data matrix (gates x moments) to be despecked.
+- `moment_dict::Dict{String, Int}`: Dictionary mapping moment names to column indices.
+- `n_gates::Int`: Number of range gates per ray.
+- `n_rays::Int`: Number of rays (azimuths) in the sweep.
+
+# Returns
+- `Matrix`: The modified `moments` matrix with speckle features set to `missing`.
+"""
 function despeckle(speckle, moments, moment_dict, n_gates, n_rays)
 
     # Despeckle a volume of data
@@ -117,6 +209,24 @@ function despeckle(speckle, moments, moment_dict, n_gates, n_rays)
 
 end
 
+"""
+    despeckle_azimuthal(speckle, moments, moment_dict, n_gates, n_rays) -> Matrix
+
+Remove small isolated features (speckle) from radar moment data along the azimuthal direction.
+
+For each range gate, contiguous non-missing segments shorter than or equal to `speckle` rays are
+set to `missing` across all moment fields. This is the azimuthal counterpart to [`despeckle`](@ref).
+
+# Arguments
+- `speckle::Int`: Maximum feature size (in rays) to be considered speckle and removed. Must be > 0.
+- `moments::Matrix`: Radar moment data matrix (gates x moments) to be despeckled.
+- `moment_dict::Dict{String, Int}`: Dictionary mapping moment names to column indices.
+- `n_gates::Int`: Number of range gates per ray.
+- `n_rays::Int`: Number of rays (azimuths) in the sweep.
+
+# Returns
+- `Matrix`: The modified `moments` matrix with azimuthal speckle features set to `missing`.
+"""
 function despeckle_azimuthal(speckle, moments, moment_dict, n_gates, n_rays)
 
     # Despeckle a volume of data in the azimuthal direction
@@ -158,6 +268,27 @@ function despeckle_azimuthal(speckle, moments, moment_dict, n_gates, n_rays)
 
 end
 
+"""
+    stddev_phidp_threshold(moments, moment_dict, n_gates, n_rays, window=11, threshold=12) -> Matrix
+
+Apply quality control by removing gates where the local standard deviation of differential
+phase (PHIDP) exceeds a threshold, indicating noisy or non-meteorological echoes.
+
+A sliding window of size `window` gates is used to compute the standard deviation of PHIDP
+along each ray. Negative PHIDP values are wrapped by adding 360 degrees before computation.
+All moment fields at gates exceeding the threshold are set to `missing`.
+
+# Arguments
+- `moments::Matrix`: Radar moment data matrix (gates x moments).
+- `moment_dict::Dict{String, Int}`: Dictionary mapping moment names to column indices (must contain `"PHIDP"`).
+- `n_gates::Int`: Number of range gates per ray.
+- `n_rays::Int`: Number of rays (azimuths) in the sweep.
+- `window::Int`: Size of the sliding window in gates (must be odd, default `11`).
+- `threshold::Real`: Standard deviation threshold in degrees (default `12`).
+
+# Returns
+- `Matrix`: The modified `moments` matrix with noisy PHIDP gates set to `missing`.
+"""
 function stddev_phidp_threshold(moments, moment_dict, n_gates, n_rays, window = 11, threshold = 12)
 
     # Use a standard deviation of phidp to threshold
@@ -186,6 +317,25 @@ function stddev_phidp_threshold(moments, moment_dict, n_gates, n_rays, window = 
 
 end
 
+"""
+    remove_platform_motion!(volume, moments, moment_dict) -> Matrix
+
+Remove the contribution of platform motion from the Doppler velocity field for ship- or
+aircraft-mounted radars.
+
+The platform radial velocity is computed from the east-west, north-south, and vertical
+platform velocity components projected onto each beam's azimuth and elevation angles,
+then added back to the measured velocity. The corrected velocity is folded back into the
+Nyquist interval.
+
+# Arguments
+- `volume`: Radar volume object containing `range`, `azimuth`, `elevation`, `ew_platform`, `ns_platform`, `w_platform`, and `nyquist_velocity` fields.
+- `moments::Matrix`: Radar moment data matrix (gates x moments).
+- `moment_dict::Dict{String, Int}`: Dictionary mapping moment names to column indices (must contain `"VEL"`).
+
+# Returns
+- `Matrix`: The modified `moments` matrix with platform-motion-corrected velocities.
+"""
 function remove_platform_motion!(volume, moments, moment_dict)
 
     # Get rid of platform motion
@@ -215,6 +365,28 @@ function remove_platform_motion!(volume, moments, moment_dict)
 
 end
 
+"""
+    threshold_dbz(volume, raw_moment_dict, qc_moments, qc_moment_dict, dbz_threshold, vel_threshold, sw_threshold) -> Matrix
+
+Remove likely ground clutter by identifying gates with high reflectivity, low velocity,
+and narrow spectrum width below 500 m height.
+
+Gates exceeding `dbz_threshold` that also have absolute velocity at or below `vel_threshold`
+and spectrum width at or below `sw_threshold` at heights below 500 m are classified as clutter
+and set to `missing`. The `"SQI_FOR_MASK"` and `"PID_FOR_QC"` fields are excluded from removal.
+
+# Arguments
+- `volume`: Radar volume object containing `moments` and metadata needed by `get_beam_info`.
+- `raw_moment_dict::Dict{String, Int}`: Dictionary mapping raw moment names to column indices (must contain `"DBZ"`, `"VEL"`, `"WIDTH"`).
+- `qc_moments::Matrix`: QC radar moment data matrix to be modified (gates x moments).
+- `qc_moment_dict::Dict{String, Int}`: Dictionary mapping QC moment names to column indices.
+- `dbz_threshold::Real`: Reflectivity threshold in dBZ above which gates are examined.
+- `vel_threshold::Real`: Maximum absolute velocity (m/s) for a gate to be classified as clutter.
+- `sw_threshold::Real`: Maximum spectrum width (m/s) for a gate to be classified as clutter.
+
+# Returns
+- `Matrix`: The modified `qc_moments` matrix with likely clutter gates set to `missing`.
+"""
 function threshold_dbz(volume, raw_moment_dict, qc_moments, qc_moment_dict,
     dbz_threshold, vel_threshold, sw_threshold)
 
@@ -281,6 +453,25 @@ function threshold_dbz(volume, raw_moment_dict, qc_moments, qc_moment_dict,
 
 end
 
+"""
+    threshold_height(volume, raw_moment_dict, qc_moments, qc_moment_dict, height_threshold) -> Matrix
+
+Remove radar gates located below a specified height threshold.
+
+All QC moment fields at gates with beam height below `height_threshold` are set to `missing`.
+The `"SQI_FOR_MASK"` and `"PID_FOR_QC"` fields are excluded from removal. Gates where DBZ
+is already `missing` are skipped.
+
+# Arguments
+- `volume`: Radar volume object containing `moments` and metadata needed by `get_beam_info`.
+- `raw_moment_dict::Dict{String, Int}`: Dictionary mapping raw moment names to column indices (must contain `"DBZ"`).
+- `qc_moments::Matrix`: QC radar moment data matrix to be modified (gates x moments).
+- `qc_moment_dict::Dict{String, Int}`: Dictionary mapping QC moment names to column indices.
+- `height_threshold::Real`: Minimum beam height in meters; gates below this are removed.
+
+# Returns
+- `Matrix`: The modified `qc_moments` matrix with low-height gates set to `missing`.
+"""
 function threshold_height(volume, raw_moment_dict, qc_moments, qc_moment_dict,
     height_threshold)
 
@@ -306,6 +497,28 @@ function threshold_height(volume, raw_moment_dict, qc_moments, qc_moment_dict,
 
 end
 
+"""
+    threshold_terrain_height(volume, raw_moment_dict, qc_moments, qc_moment_dict, terrain_threshold, tile_dir) -> Matrix
+
+Remove radar gates located over terrain exceeding a specified elevation threshold using SRTM
+digital terrain model data.
+
+For each gate, the geographic coordinates are computed via an approximate inverse projection
+from radar-relative coordinates. The terrain elevation is looked up from pre-loaded SRTM tiles.
+All QC moment fields at gates over terrain above `terrain_threshold` meters are set to `missing`.
+This function is multi-threaded.
+
+# Arguments
+- `volume`: Radar volume object containing position, moment, and beam geometry data.
+- `raw_moment_dict::Dict{String, Int}`: Dictionary mapping raw moment names to column indices (must contain `"SQI_FOR_MASK"`, `"DBZ"`).
+- `qc_moments::Matrix`: QC radar moment data matrix to be modified (gates x moments).
+- `qc_moment_dict::Dict{String, Int}`: Dictionary mapping QC moment names to column indices.
+- `terrain_threshold::Real`: Terrain elevation threshold in meters; gates over higher terrain are removed.
+- `tile_dir::String`: Path to directory containing SRTM `.hgt` tile files.
+
+# Returns
+- `Matrix`: The modified `qc_moments` matrix with terrain-blocked gates set to `missing`.
+"""
 function threshold_terrain_height(volume, raw_moment_dict, qc_moments, qc_moment_dict, terrain_threshold, tile_dir)
 
     # Moment data
@@ -358,6 +571,20 @@ function threshold_terrain_height(volume, raw_moment_dict, qc_moments, qc_moment
     return qc_moments
 end
 
+"""
+    add_azimuthal_offset(volume, az_offset) -> Vector
+
+Add a constant azimuthal offset to all rays in a radar volume and wrap to [0, 360) degrees.
+
+This is useful for correcting systematic azimuth biases in radar pointing angles.
+
+# Arguments
+- `volume`: Radar volume object containing an `azimuth` array.
+- `az_offset::Real`: Azimuthal offset in degrees to add to every ray.
+
+# Returns
+- `Vector`: The modified azimuth array, wrapped to the range [0, 360) degrees.
+"""
 function add_azimuthal_offset(volume, az_offset)
 
     # Add constant offset to azimuth
@@ -368,6 +595,28 @@ function add_azimuthal_offset(volume, az_offset)
 
 end
 
+"""
+    mask_sector(volume, raw_moment_dict, qc_moments, qc_moment_dict, heading, az_min, az_max, mask_key) -> Matrix
+
+Mask all radar data within a heading-relative azimuthal sector.
+
+Gates whose heading-relative azimuth (earth-relative azimuth minus heading, modulo 360)
+falls between `az_min` and `az_max` are set to `missing` for all QC moment fields. Gates
+where `mask_key` is already `missing` are skipped.
+
+# Arguments
+- `volume`: Radar volume object containing `range`, `azimuth`, and `elevation` fields.
+- `raw_moment_dict::Dict{String, Int}`: Dictionary mapping raw moment names to column indices.
+- `qc_moments::Matrix`: QC radar moment data matrix to be modified (gates x moments).
+- `qc_moment_dict::Dict{String, Int}`: Dictionary mapping QC moment names to column indices.
+- `heading::Vector`: Per-ray heading values in degrees.
+- `az_min::Real`: Minimum heading-relative azimuth of the masked sector in degrees.
+- `az_max::Real`: Maximum heading-relative azimuth of the masked sector in degrees.
+- `mask_key::String`: Moment field name used to check if a gate is already masked.
+
+# Returns
+- `Matrix`: The modified `qc_moments` matrix with gates in the specified sector set to `missing`.
+"""
 function mask_sector(volume, raw_moment_dict, qc_moments, qc_moment_dict, heading, az_min, az_max, mask_key)
 
     # Mask data between two heading relative azimuths
@@ -380,13 +629,7 @@ function mask_sector(volume, raw_moment_dict, qc_moments, qc_moment_dict, headin
             # Already in the blanking sector or out of range
             continue
         end
-        az = beams[i,2] - beams[i,1]
-        if (az < 0.0)
-            az += 360.0
-        end
-        if (az > 360.0)
-            az -= 360.0
-        end
+        az = mod(beams[i,2] - beams[i,1], 360.0)
         if (az >= az_min) && (az <= az_max)
             #println("Gate $i in blanking sector at heading-relative $az (earth-relative $(beams[i,2]))")
             for key in keys(qc_moment_dict)

@@ -1,5 +1,31 @@
 # Radar utilities
 
+"""
+    radar
+
+Composite type representing a radar volume or sweep.
+
+Stores all metadata and moment data from a CfRadial file, including scan geometry,
+platform motion, geographic position, sweep indices, and the moment data array.
+
+# Fields
+- `scan_name::String`: name of the radar scan.
+- `azimuth::Array{Union{Missing, Float32}}`: azimuth angles for each ray (degrees).
+- `elevation::Array{Union{Missing, Float32}}`: elevation angles for each ray (degrees).
+- `ew_platform::Array{Union{Missing, Float32}}`: eastward platform velocity (m/s).
+- `ns_platform::Array{Union{Missing, Float32}}`: northward platform velocity (m/s).
+- `w_platform::Array{Union{Missing, Float32}}`: vertical platform velocity (m/s).
+- `nyquist_velocity::Array{Union{Missing, Float32}}`: Nyquist velocity per ray (m/s).
+- `range::Array{Union{Missing, Float32}}`: range gate distances (m).
+- `time::Array{DateTime}`: time stamp for each ray.
+- `latitude::Array{Union{Missing, Float32}}`: radar latitude(s) (degrees).
+- `longitude::Array{Union{Missing, Float32}}`: radar longitude(s) (degrees).
+- `altitude::Array{Union{Missing, Float32}}`: radar altitude(s) (m MSL).
+- `fixed_angles::Array{Union{Missing, Float32}}`: fixed angle(s) for each sweep (degrees).
+- `swpstart::Array{Union{Missing, Float32}}`: sweep start ray indices (0-based).
+- `swpend::Array{Union{Missing, Float32}}`: sweep end ray indices (0-based).
+- `moments::Array{Union{Missing, Float64}}`: 2-D array of moment data (gates x moments).
+"""
 Base.@kwdef struct radar
     scan_name::String
     azimuth::Array{Union{Missing, Float32}}
@@ -19,6 +45,25 @@ Base.@kwdef struct radar
     moments::Array{Union{Missing, Float64}}
 end
 
+"""
+    initialize_moment_dictionaries(raw_moment_names, qc_moment_names, moment_grid_type) -> (Dict, Dict, Dict)
+
+Create index-mapping dictionaries for raw and QC moment fields.
+
+Maps moment name strings to integer indices so that moment arrays can be accessed by
+column index rather than by name.
+
+# Arguments
+- `raw_moment_names`: iterable of raw moment field name strings (e.g., `["DBZ", "VEL"]`).
+- `qc_moment_names`: iterable of quality-controlled moment field name strings.
+- `moment_grid_type`: iterable of grid type identifiers, one per QC moment.
+
+# Returns
+A tuple of three `Dict` objects:
+- `raw_moment_dict`: maps each raw moment name to its column index.
+- `qc_moment_dict`: maps each QC moment name to its column index.
+- `grid_type_dict`: maps each QC column index to its grid type.
+"""
 function initialize_moment_dictionaries(raw_moment_names, qc_moment_names, moment_grid_type)
 
     # This function maps names to numbers to facilitate array operations
@@ -40,6 +85,24 @@ function initialize_moment_dictionaries(raw_moment_names, qc_moment_names, momen
     return raw_moment_dict, qc_moment_dict, grid_type_dict
 end
 
+"""
+    initialize_qc_fields(volume, raw_moment_dict, qc_moment_dict) -> Array{Union{Missing, Float32}}
+
+Initialize quality-controlled moment fields by copying the corresponding raw moments.
+
+Creates a new 2-D array dimensioned (gates, n_qc_moments) and populates each QC moment
+column from the matching raw moment column in the radar volume. Assumes every QC moment
+name exists as a key in `raw_moment_dict`.
+
+# Arguments
+- `volume::radar`: the radar volume containing raw moment data.
+- `raw_moment_dict::Dict`: maps raw moment names to column indices in `volume.moments`.
+- `qc_moment_dict::Dict`: maps QC moment names to column indices in the output array.
+
+# Returns
+A `Matrix{Union{Missing, Float32}}` of size `(n_gates * n_rays, n_qc_moments)` populated
+with copies of the raw moment data.
+"""
 function initialize_qc_fields(volume, raw_moment_dict, qc_moment_dict)
 
     # Initialize QC fields by copying over the originals
@@ -63,6 +126,21 @@ function initialize_qc_fields(volume, raw_moment_dict, qc_moment_dict)
 
 end
 
+"""
+    split_sweeps(radar_volume) -> Vector{radar}
+
+Split a multi-sweep radar volume into an array of individual sweep `radar` structs.
+
+Iterates over the sweep start/end ray indices stored in `radar_volume` and creates a new
+`radar` instance for each sweep using views into the original volume data. For stationary
+platforms (single latitude value), the position is repeated for every ray in the sweep.
+
+# Arguments
+- `radar_volume::radar`: a radar volume potentially containing multiple sweeps.
+
+# Returns
+A `Vector{radar}` where each element corresponds to one sweep from the input volume.
+"""
 function split_sweeps(radar_volume)
 
     # Extract sweeps from the volume and put it in an array of radar structures
@@ -108,6 +186,20 @@ function split_sweeps(radar_volume)
     return sweeps
 end
 
+"""
+    beam_height(slant_range, elevation, radar_height) -> Float64
+
+Calculate the radar beam height above mean sea level using the 4/3 effective Earth radius
+standard refraction model.
+
+# Arguments
+- `slant_range`: slant range from the radar to the target (meters).
+- `elevation`: beam elevation angle (degrees).
+- `radar_height`: height of the radar above mean sea level (meters).
+
+# Returns
+The beam-center height above mean sea level (meters).
+"""
 function beam_height(slant_range, elevation, radar_height)
 
     # This function calculates the beam height using 4/3 Earth standard refraction model
@@ -120,6 +212,20 @@ function beam_height(slant_range, elevation, radar_height)
 
 end
 
+"""
+    dB_to_linear(moment) -> Array
+
+Convert a radar moment field from decibel (dB) to linear units.
+
+Applies the transformation `10^(x/10)` element-wise. Works for reflectivity (Z),
+differential reflectivity (ZDR), or any other dB-scaled quantity.
+
+# Arguments
+- `moment`: array of moment values in dB.
+
+# Returns
+A new array with the values converted to linear units.
+"""
 function dB_to_linear(moment)
 
     # Convert Z or ZDR or other moment in dB to linear units
@@ -127,6 +233,20 @@ function dB_to_linear(moment)
 
 end
 
+"""
+    linear_to_dB(moment) -> Array
+
+Convert a radar moment field from linear units to decibels (dB).
+
+Applies the transformation `10 * log10(x)` element-wise. Works for reflectivity (Z),
+differential reflectivity (ZDR), or any other linearly-scaled quantity.
+
+# Arguments
+- `moment`: array of moment values in linear units.
+
+# Returns
+A new array with the values converted to dB.
+"""
 function linear_to_dB(moment)
 
     # Convert Z or ZDR or other moment in linear units to dB
@@ -134,6 +254,17 @@ function linear_to_dB(moment)
 
 end
 
+"""
+    dB_to_linear!(moment) -> Nothing
+
+Convert a radar moment field from decibel (dB) to linear units in place.
+
+Mutates `moment` by applying `10^(x/10)` element-wise. This is the in-place variant
+of [`dB_to_linear`](@ref).
+
+# Arguments
+- `moment`: array of moment values in dB; modified in place.
+"""
 function dB_to_linear!(moment)
 
     # Convert Z or ZDR or other moment in dB to linear units
@@ -141,6 +272,17 @@ function dB_to_linear!(moment)
 
 end
 
+"""
+    linear_to_dB!(moment) -> Nothing
+
+Convert a radar moment field from linear units to decibels (dB) in place.
+
+Mutates `moment` by applying `10 * log10(x)` element-wise. This is the in-place variant
+of [`linear_to_dB`](@ref).
+
+# Arguments
+- `moment`: array of moment values in linear units; modified in place.
+"""
 function linear_to_dB!(moment)
 
     # Convert Z or ZDR or other moment in linear units to dB
@@ -148,6 +290,22 @@ function linear_to_dB!(moment)
 
 end
 
+"""
+    read_cfradial(file, moment_dict) -> radar
+
+Read a CfRadial NetCDF file and return a populated [`radar`](@ref) struct.
+
+Opens the file with `NCDataset`, extracts scan metadata (azimuth, elevation, platform
+velocities, Nyquist velocity, range, time, position, sweep indices), and loads each moment
+field listed in `moment_dict` into the moments array.
+
+# Arguments
+- `file::String`: path to a CfRadial-compliant NetCDF file.
+- `moment_dict::Dict`: maps moment field names (e.g., `"DBZ"`, `"VEL"`) to column indices.
+
+# Returns
+A [`radar`](@ref) struct containing all data read from the file.
+"""
 function read_cfradial(file, moment_dict)
 
     inputds = NCDataset(file);
@@ -230,6 +388,21 @@ function read_cfradial(file, moment_dict)
 
 end
 
+"""
+    get_radar_orientation(file) -> Matrix{Float64}
+
+Read heading, pitch, and roll arrays from a CfRadial NetCDF file.
+
+Returns an `(n_rays, 3)` matrix where the columns are heading, pitch, and roll
+respectively. If any of these variables are absent from the file, the corresponding
+column is filled with `NaN`.
+
+# Arguments
+- `file::String`: path to a CfRadial-compliant NetCDF file.
+
+# Returns
+A `Matrix{Float64}` of size `(n_rays, 3)` with columns `[heading pitch roll]`.
+"""
 function get_radar_orientation(file)
 
     inputds = NCDataset(file)
@@ -254,6 +427,28 @@ function get_radar_orientation(file)
     return [headingdata pitchdata rolldata]
 end
 
+"""
+    write_qced_cfradial_sigmet(file, qc_file, qc_moments, qc_moment_dict) -> Nothing
+
+Write quality-controlled moments to a new CfRadial NetCDF file for SIGMET-format radars.
+
+Reads metadata and dimensions from the original CfRadial `file`, creates a new NetCDF
+file at `qc_file`, copies all metadata and coordinate variables, and writes the
+quality-controlled moment data from `qc_moments`.
+
+!!! note "Technical debt"
+    This function is nearly identical to [`write_qced_cfradial_singlepol`](@ref),
+    [`write_qced_cfradial_dualpol`](@ref), and [`write_qced_cfradial_P3`](@ref).
+    The four variants differ only in which metadata attributes and variables are
+    expected in the source file. They should be refactored into a single generic
+    writer.
+
+# Arguments
+- `file::String`: path to the original CfRadial NetCDF file (used as a template).
+- `qc_file::String`: output path for the new QC CfRadial NetCDF file.
+- `qc_moments::Matrix`: 2-D array of QC moment data (gates x moments).
+- `qc_moment_dict::Dict`: maps QC moment names to column indices in `qc_moments`.
+"""
 function write_qced_cfradial_sigmet(file, qc_file, qc_moments, qc_moment_dict)
 
     inputds = NCDataset(file);
@@ -833,7 +1028,7 @@ function write_qced_cfradial_sigmet(file, qc_file, qc_moments, qc_moment_dict)
         "standard_name"             => "time",
         "long_name"                 => "time in seconds since volume start",
         "calendar"                  => "gregorian",
-        "units"                     => "seconds since 2024-08-27T21:40:08Z",
+        "units"                     => inputds["time"].attrib["units"],
         "comment"                   => "times are relative to the volume start_time",
     ))
 
@@ -1434,6 +1629,28 @@ function write_qced_cfradial_sigmet(file, qc_file, qc_moments, qc_moment_dict)
 
 end
 
+"""
+    write_qced_cfradial_singlepol(file, qc_file, qc_moments, qc_moment_dict) -> Nothing
+
+Write quality-controlled moments to a new CfRadial NetCDF file for single-polarization radars.
+
+Reads metadata and dimensions from the original CfRadial `file`, creates a new NetCDF
+file at `qc_file`, copies all metadata and coordinate variables, and writes the
+quality-controlled moment data from `qc_moments`.
+
+!!! note "Technical debt"
+    This function is nearly identical to [`write_qced_cfradial_sigmet`](@ref),
+    [`write_qced_cfradial_dualpol`](@ref), and [`write_qced_cfradial_P3`](@ref).
+    The four variants differ only in which metadata attributes and variables are
+    expected in the source file. They should be refactored into a single generic
+    writer.
+
+# Arguments
+- `file::String`: path to the original CfRadial NetCDF file (used as a template).
+- `qc_file::String`: output path for the new QC CfRadial NetCDF file.
+- `qc_moments::Matrix`: 2-D array of QC moment data (gates x moments).
+- `qc_moment_dict::Dict`: maps QC moment names to column indices in `qc_moments`.
+"""
 function write_qced_cfradial_singlepol(file, qc_file, qc_moments, qc_moment_dict)
 
     inputds = NCDataset(file);
@@ -2013,7 +2230,7 @@ function write_qced_cfradial_singlepol(file, qc_file, qc_moments, qc_moment_dict
         "standard_name"             => "time",
         "long_name"                 => "time in seconds since volume start",
         "calendar"                  => "gregorian",
-        "units"                     => "seconds since 2024-08-27T21:40:08Z",
+        "units"                     => inputds["time"].attrib["units"],
         "comment"                   => "times are relative to the volume start_time",
     ))
 
@@ -2705,6 +2922,28 @@ function write_qced_cfradial_singlepol(file, qc_file, qc_moments, qc_moment_dict
     close(ds)
 end
 
+"""
+    write_qced_cfradial_dualpol(file, qc_file, qc_moments, qc_moment_dict) -> Nothing
+
+Write quality-controlled moments to a new CfRadial NetCDF file for dual-polarization radars.
+
+Reads metadata and dimensions from the original CfRadial `file`, creates a new NetCDF
+file at `qc_file`, copies all metadata and coordinate variables, and writes the
+quality-controlled moment data from `qc_moments`.
+
+!!! note "Technical debt"
+    This function is nearly identical to [`write_qced_cfradial_sigmet`](@ref),
+    [`write_qced_cfradial_singlepol`](@ref), and [`write_qced_cfradial_P3`](@ref).
+    The four variants differ only in which metadata attributes and variables are
+    expected in the source file. They should be refactored into a single generic
+    writer.
+
+# Arguments
+- `file::String`: path to the original CfRadial NetCDF file (used as a template).
+- `qc_file::String`: output path for the new QC CfRadial NetCDF file.
+- `qc_moments::Matrix`: 2-D array of QC moment data (gates x moments).
+- `qc_moment_dict::Dict`: maps QC moment names to column indices in `qc_moments`.
+"""
 function write_qced_cfradial_dualpol(file, qc_file, qc_moments, qc_moment_dict)
 
     inputds = NCDataset(file);
@@ -3284,7 +3523,7 @@ function write_qced_cfradial_dualpol(file, qc_file, qc_moments, qc_moment_dict)
         "standard_name"             => "time",
         "long_name"                 => "time in seconds since volume start",
         "calendar"                  => "gregorian",
-        "units"                     => "seconds since 2024-08-27T21:40:08Z",
+        "units"                     => inputds["time"].attrib["units"],
         "comment"                   => "times are relative to the volume start_time",
     ))
 
@@ -3976,6 +4215,28 @@ function write_qced_cfradial_dualpol(file, qc_file, qc_moments, qc_moment_dict)
     close(ds)
 end
 
+"""
+    write_qced_cfradial_P3(file, qc_file, qc_moments, qc_moment_dict) -> Nothing
+
+Write quality-controlled moments to a new CfRadial NetCDF file for P-3 airborne radars.
+
+Reads metadata and dimensions from the original CfRadial `file`, creates a new NetCDF
+file at `qc_file`, copies all metadata and coordinate variables, and writes the
+quality-controlled moment data from `qc_moments`.
+
+!!! note "Technical debt"
+    This function is nearly identical to [`write_qced_cfradial_sigmet`](@ref),
+    [`write_qced_cfradial_singlepol`](@ref), and [`write_qced_cfradial_dualpol`](@ref).
+    The four variants differ only in which metadata attributes and variables are
+    expected in the source file. They should be refactored into a single generic
+    writer.
+
+# Arguments
+- `file::String`: path to the original CfRadial NetCDF file (used as a template).
+- `qc_file::String`: output path for the new QC CfRadial NetCDF file.
+- `qc_moments::Matrix`: 2-D array of QC moment data (gates x moments).
+- `qc_moment_dict::Dict`: maps QC moment names to column indices in `qc_moments`.
+"""
 function write_qced_cfradial_P3(file, qc_file, qc_moments, qc_moment_dict)
 
     inputds = NCDataset(file);

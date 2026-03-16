@@ -1,4 +1,12 @@
 # NetCDF parameters for common variables
+#
+# This file defines standard NetCDF attribute dictionaries for radar moment variables
+# used when writing CfRadial-format NetCDF files. Each variable (e.g., DBZ, VEL, ZDR)
+# has an associated OrderedDict containing its standard_name, long_name, and units.
+# A common attribute dictionary provides shared metadata such as valid range, fill values,
+# coordinate references, and grid mapping. A master lookup dictionary
+# (`variable_attrib_dict`) maps variable name strings to their corresponding attribute
+# dictionaries for convenient access during NetCDF file construction.
 
 common_attrib = OrderedDict(
         "valid_min"                 => Float32(-3.4028e38),

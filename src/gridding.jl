@@ -1,5 +1,27 @@
 # Radar gridding functions
 
+"""
+    initialize_regular_grid(xmin, xincr, xdim, ymin, yincr, ydim, zmin, zincr, zdim) -> Array{Float64, 4}
+
+Initialize a 3D regular Cartesian grid with Z, Y, X coordinates.
+
+Allocates and fills a 4D array where the first three dimensions correspond to Z, Y, X grid indices
+and the fourth dimension stores the coordinate values (z, y, x) at each grid point.
+
+# Arguments
+- `xmin`: Minimum x-coordinate (meters).
+- `xincr`: Grid spacing in the x-direction (meters).
+- `xdim`: Number of grid points in the x-direction.
+- `ymin`: Minimum y-coordinate (meters).
+- `yincr`: Grid spacing in the y-direction (meters).
+- `ydim`: Number of grid points in the y-direction.
+- `zmin`: Minimum z-coordinate (meters).
+- `zincr`: Grid spacing in the z-direction (meters).
+- `zdim`: Number of grid points in the z-direction.
+
+# Returns
+A `(zdim, ydim, xdim, 3)` `Array{Float64, 4}` where the last dimension stores `[z, y, x]` coordinates.
+"""
 function initialize_regular_grid(xmin, xincr, xdim, ymin, yincr, ydim, zmin, zincr, zdim)
 
     # Define and allocate a 3d regular grid
@@ -12,6 +34,25 @@ function initialize_regular_grid(xmin, xincr, xdim, ymin, yincr, ydim, zmin, zin
     return regular_3d_grid
 end
 
+"""
+    initialize_regular_grid(xmin, xincr, xdim, ymin, yincr, ydim) -> Array{Float64, 3}
+
+Initialize a 2D regular Cartesian grid with Y, X coordinates.
+
+Allocates and fills a 3D array where the first two dimensions correspond to Y, X grid indices
+and the third dimension stores the coordinate values (y, x) at each grid point.
+
+# Arguments
+- `xmin`: Minimum x-coordinate (meters).
+- `xincr`: Grid spacing in the x-direction (meters).
+- `xdim`: Number of grid points in the x-direction.
+- `ymin`: Minimum y-coordinate (meters).
+- `yincr`: Grid spacing in the y-direction (meters).
+- `ydim`: Number of grid points in the y-direction.
+
+# Returns
+A `(ydim, xdim, 2)` `Array{Float64, 3}` where the last dimension stores `[y, x]` coordinates.
+"""
 function initialize_regular_grid(xmin, xincr, xdim, ymin, yincr, ydim)
 
     # Define and allocate a 2d regular grid
@@ -24,6 +65,21 @@ function initialize_regular_grid(xmin, xincr, xdim, ymin, yincr, ydim)
     return regular_2d_grid
 end
 
+"""
+    initialize_regular_grid(zmin, zincr, zdim) -> Array{Float64, 1}
+
+Initialize a 1D regular grid (e.g., vertical altitude levels).
+
+Allocates and fills a 1D array of evenly spaced coordinate values.
+
+# Arguments
+- `zmin`: Minimum coordinate value (meters).
+- `zincr`: Grid spacing (meters).
+- `zdim`: Number of grid points.
+
+# Returns
+A `(zdim,)` `Array{Float64, 1}` of coordinate values.
+"""
 function initialize_regular_grid(zmin, zincr, zdim)
 
     # Define and allocate a 2d regular grid
@@ -34,6 +90,30 @@ function initialize_regular_grid(zmin, zincr, zdim)
     return regular_1d_grid
 end
 
+"""
+    initialize_regular_grid(reference_latitude, reference_longitude, lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim) -> Array{Float64, 4}
+
+Initialize a 3D regular grid on a latitude-longitude coordinate system with vertical levels.
+
+Constructs a Transverse Mercator projection centered on the reference point, creates a lat/lon grid,
+converts it to Cartesian coordinates, and produces a 3D grid array with Z, Y, X values.
+
+# Arguments
+- `reference_latitude`: Latitude of the projection origin (degrees).
+- `reference_longitude`: Longitude of the projection origin (degrees).
+- `lonmin`: Minimum longitude of the grid (degrees).
+- `londim`: Number of grid points in the longitude direction.
+- `latmin`: Minimum latitude of the grid (degrees).
+- `latdim`: Number of grid points in the latitude direction.
+- `degincr`: Grid spacing in degrees for both latitude and longitude.
+- `zmin`: Minimum altitude (meters).
+- `zincr`: Vertical grid spacing (meters).
+- `zdim`: Number of vertical grid levels.
+
+# Returns
+A `(zdim, latdim, londim, 3)` `Array{Float64, 4}` where the last dimension stores `[z, y, x]`
+in Transverse Mercator Cartesian coordinates (meters).
+"""
 function initialize_regular_grid(reference_latitude, reference_longitude, lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim)
 
     # Define and allocate a 3d regular latlon grid
@@ -49,7 +129,7 @@ function initialize_regular_grid(reference_latitude, reference_longitude, lonmin
     regular_3d_grid = Array{Float64}(undef,zdim,latdim,londim,3)
     for i in CartesianIndices(size(regular_3d_grid)[2:3])
         for j in 1:zdim
-            regular_3d_grid[j,i,1] = zincr * (j[1]-1) + zmin
+            regular_3d_grid[j,i,1] = zincr * (j-1) + zmin
             regular_3d_grid[j,i,2] = ustrip(cartTM[i].y)
             regular_3d_grid[j,i,3] = ustrip(cartTM[i].x)
         end
@@ -58,6 +138,24 @@ function initialize_regular_grid(reference_latitude, reference_longitude, lonmin
     return regular_3d_grid
 end
 
+"""
+    get_radar_zyx(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, radar_volume::radar, projection) -> Vector
+
+Compute radar gate origin positions in Transverse Mercator Cartesian coordinates.
+
+Converts the radar latitude/longitude positions from the volume to the given projection and
+constructs a vector of `[z, y, x]` origin coordinates for every gate (range x beam).
+
+# Arguments
+- `reference_latitude::AbstractFloat`: Reference latitude (degrees), unused directly but passed for context.
+- `reference_longitude::AbstractFloat`: Reference longitude (degrees), unused directly but passed for context.
+- `radar_volume::radar`: Radar volume data structure containing latitude, longitude, altitude, and range fields.
+- `projection`: A Transverse Mercator projection type used to convert lat/lon to Cartesian coordinates.
+
+# Returns
+A matrix-shaped vector of `[z, y, x]` vectors with dimensions `(n_ranges, n_beams)`, giving the beam
+origin position for each gate in the radar volume.
+"""
 function get_radar_zyx(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, radar_volume::radar, projection)
 
     # Radar locations mapped to transverse mercator with Z,Y,X dimensions
@@ -68,6 +166,21 @@ function get_radar_zyx(reference_latitude::AbstractFloat, reference_longitude::A
 
 end
 
+"""
+    get_beam_info(radar_volume::radar) -> Array{Float64, 2}
+
+Extract beam geometry information for every gate in the radar volume.
+
+Computes azimuth (radians), elevation (radians), range (meters), and beam height (meters) for
+each gate, accounting for earth curvature via `beam_height`.
+
+# Arguments
+- `radar_volume::radar`: Radar volume data structure containing azimuth, elevation, range, and altitude fields.
+
+# Returns
+An `(n_gates, 4)` `Array` where each row contains `[azimuth, elevation, range, height]` for a gate.
+Azimuth and elevation are in radians; range and height are in meters.
+"""
 function get_beam_info(radar_volume::radar)
 
     # Create an array with all the relevant beam info (azimuth, elevation, range, height)
@@ -79,6 +192,26 @@ function get_beam_info(radar_volume::radar)
 
 end
 
+"""
+    radar_arrays(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, radar_volume::radar, projection) -> Tuple
+
+Compute the grid origin, radar gate positions, and beam geometry arrays for a radar volume.
+
+A convenience function that calls `get_radar_zyx` and `get_beam_info` together, and also
+computes the grid origin in the given projection.
+
+# Arguments
+- `reference_latitude::AbstractFloat`: Reference latitude for the grid origin (degrees).
+- `reference_longitude::AbstractFloat`: Reference longitude for the grid origin (degrees).
+- `radar_volume::radar`: Radar volume data structure.
+- `projection`: Transverse Mercator projection type.
+
+# Returns
+A tuple `(grid_origin, radar_zyx, beams)` where:
+- `grid_origin`: The reference point converted to the projection coordinate system.
+- `radar_zyx`: Gate origin positions from `get_radar_zyx`.
+- `beams`: Beam geometry array from `get_beam_info`.
+"""
 function radar_arrays(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, radar_volume::radar, projection)
 
     # Grid origin
@@ -94,6 +227,23 @@ function radar_arrays(reference_latitude::AbstractFloat, reference_longitude::Ab
     
 end
 
+"""
+    radar_balltree_yx(radar_volume::radar, radar_zyx::AbstractArray, beams::AbstractArray) -> BallTree
+
+Build a BallTree spatial index for horizontal (Y, X) gate locations.
+
+Computes the surface-projected Y and X positions of every radar gate using the effective earth
+radius model, then constructs a `BallTree` for efficient nearest-neighbor and range queries
+in the horizontal plane.
+
+# Arguments
+- `radar_volume::radar`: Radar volume data structure (used for array dimensions).
+- `radar_zyx::AbstractArray`: Gate origin positions as `[z, y, x]` vectors from `get_radar_zyx`.
+- `beams::AbstractArray`: Beam geometry array from `get_beam_info` with columns `[azimuth, elevation, range, height]`.
+
+# Returns
+A `BallTree` indexed on 2D `(y, x)` gate positions (meters).
+"""
 function radar_balltree_yx(radar_volume::radar, radar_zyx::AbstractArray, beams::AbstractArray)
 
     # Create a balltree that has horizontal locations of every gate in Y, X dimension
@@ -108,6 +258,23 @@ function radar_balltree_yx(radar_volume::radar, radar_zyx::AbstractArray, beams:
 
 end
 
+"""
+    radar_balltree_r(radar_volume::radar, radar_zyx::AbstractArray, beams::AbstractArray) -> BallTree
+
+Build a BallTree spatial index for radial (range) gate locations.
+
+Computes the surface-projected radial distance from the origin for every radar gate using the
+effective earth radius model, then constructs a `BallTree` for efficient range queries in 1D.
+This is used for RHI gridding where the horizontal coordinate is range rather than Y/X.
+
+# Arguments
+- `radar_volume::radar`: Radar volume data structure (used for array dimensions).
+- `radar_zyx::AbstractArray`: Gate origin positions as `[z, y, x]` vectors from `get_radar_zyx`.
+- `beams::AbstractArray`: Beam geometry array from `get_beam_info` with columns `[azimuth, elevation, range, height]`.
+
+# Returns
+A `BallTree` indexed on 1D radial distance (meters) from the origin.
+"""
 function radar_balltree_r(radar_volume::radar, radar_zyx::AbstractArray, beams::AbstractArray)
 
     # Create a balltree that has horizontal locations of every gate in R dimension
@@ -123,6 +290,23 @@ function radar_balltree_r(radar_volume::radar, radar_zyx::AbstractArray, beams::
 
 end
 
+"""
+    appx_inverse_projection(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, yx_point::AbstractArray) -> Tuple{Float64, Float64}
+
+Compute an approximate inverse map projection from Cartesian (y, x) offsets back to latitude/longitude.
+
+Uses an empirical formula (originating from HRD/FCC wireless communication specifications) to convert
+meter offsets from a reference point back to geographic coordinates. This is a fast approximation
+rather than a rigorous geodetic inverse projection.
+
+# Arguments
+- `reference_latitude::AbstractFloat`: Latitude of the reference origin (degrees).
+- `reference_longitude::AbstractFloat`: Longitude of the reference origin (degrees).
+- `yx_point::AbstractArray`: A 2-element array `[y_offset, x_offset]` in meters from the reference point.
+
+# Returns
+A tuple `(lat, lon)` of the approximate latitude and longitude in degrees.
+"""
 function appx_inverse_projection(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, yx_point::AbstractArray)
 
     # Approximate lat/lon from SAMURAI formula
@@ -138,6 +322,36 @@ function appx_inverse_projection(reference_latitude::AbstractFloat, reference_lo
 
 end
 
+"""
+    grid_radar_volume(radar_volume, moment_dict, grid_type_dict, output_file, index_time, xmin, xincr, xdim, ymin, yincr, ydim, zmin, zincr, zdim, beam_inflation, power_threshold, missing_key="SQI", valid_key="DBZ", heading=-9999.0)
+
+Grid a radar volume scan onto a 3D Cartesian grid and write the result to a NetCDF file.
+
+This is the high-level driver for Cartesian volume gridding. It initializes the grid, computes
+the radius of influence from the grid spacing, calls `grid_volume` for the interpolation, and
+writes the output via `write_gridded_radar_volume`.
+
+# Arguments
+- `radar_volume`: Radar volume data structure.
+- `moment_dict`: Dictionary mapping moment names (e.g., `"DBZ"`) to integer indices.
+- `grid_type_dict`: Dictionary mapping moment indices to interpolation type symbols (`:linear`, `:nearest`, or default weighted average).
+- `output_file`: Path to the output NetCDF file.
+- `index_time`: Reference time for the output dataset.
+- `xmin`: Minimum x-coordinate of the grid (meters).
+- `xincr`: Grid spacing in x (meters).
+- `xdim`: Number of grid points in x.
+- `ymin`: Minimum y-coordinate of the grid (meters).
+- `yincr`: Grid spacing in y (meters).
+- `ydim`: Number of grid points in y.
+- `zmin`: Minimum z-coordinate of the grid (meters).
+- `zincr`: Grid spacing in z (meters).
+- `zdim`: Number of grid points in z.
+- `beam_inflation`: Factor for inflating the radius of influence with distance from the radar. Set to 0.0 to disable.
+- `power_threshold`: Minimum beam power weight below which a gate is excluded.
+- `missing_key`: Moment name used to determine if a gate has valid signal (default `"SQI"`).
+- `valid_key`: Moment name used for valid-data gating (default `"DBZ"`).
+- `heading`: Mean heading of the platform in degrees (default `-9999.0` for missing).
+"""
 function grid_radar_volume(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
         xmin, xincr, xdim, ymin, yincr, ydim, zmin, zincr, zdim, beam_inflation, power_threshold,
         missing_key="SQI", valid_key="DBZ", heading=-9999.0)
@@ -163,6 +377,35 @@ function grid_radar_volume(radar_volume, moment_dict, grid_type_dict, output_fil
     
 end
 
+"""
+    grid_radar_latlon_volume(radar_volume, moment_dict, grid_type_dict, output_file, index_time, lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim, beam_inflation, power_threshold, missing_key="SQI", valid_key="DBZ", heading=-9999.0)
+
+Grid a radar volume scan onto a 3D latitude-longitude grid and write the result to a NetCDF file.
+
+Similar to `grid_radar_volume`, but the horizontal grid is defined in degrees of latitude and longitude
+rather than meters. The reference point is derived from the radar location snapped to the nearest
+grid increment. Horizontal radius of influence is computed from the degree increment converted to meters.
+
+# Arguments
+- `radar_volume`: Radar volume data structure.
+- `moment_dict`: Dictionary mapping moment names to integer indices.
+- `grid_type_dict`: Dictionary mapping moment indices to interpolation type symbols.
+- `output_file`: Path to the output NetCDF file.
+- `index_time`: Reference time for the output dataset.
+- `lonmin`: Minimum longitude offset from reference (degrees).
+- `londim`: Number of grid points in longitude.
+- `latmin`: Minimum latitude offset from reference (degrees).
+- `latdim`: Number of grid points in latitude.
+- `degincr`: Grid spacing in degrees for both latitude and longitude.
+- `zmin`: Minimum altitude (meters).
+- `zincr`: Vertical grid spacing (meters).
+- `zdim`: Number of vertical grid levels.
+- `beam_inflation`: Factor for inflating the radius of influence with distance from the radar.
+- `power_threshold`: Minimum beam power weight below which a gate is excluded.
+- `missing_key`: Moment name used for signal quality gating (default `"SQI"`).
+- `valid_key`: Moment name used for valid-data gating (default `"DBZ"`).
+- `heading`: Mean heading of the platform in degrees (default `-9999.0` for missing).
+"""
 function grid_radar_latlon_volume(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
     lonmin, londim, latmin, latdim, degincr, zmin, zincr, zdim, beam_inflation, power_threshold,
     missing_key="SQI", valid_key="DBZ", heading=-9999.0)
@@ -200,6 +443,31 @@ function grid_radar_latlon_volume(radar_volume, moment_dict, grid_type_dict, out
 
 end
 
+"""
+    grid_radar_rhi(radar_volume, moment_dict, grid_type_dict, output_file, index_time, rmin, rincr, rdim, rhi_zmin, rhi_zincr, rhi_zdim, beam_inflation, power_threshold, missing_key="SQI", valid_key="DBZ")
+
+Grid a radar RHI (Range-Height Indicator) scan onto a 2D range-height grid and write to a NetCDF file.
+
+Initializes a 2D grid in range and altitude, calls `grid_rhi` for the interpolation, and writes
+the output via `write_gridded_radar_rhi`.
+
+# Arguments
+- `radar_volume`: Radar volume data structure containing the RHI scan.
+- `moment_dict`: Dictionary mapping moment names to integer indices.
+- `grid_type_dict`: Dictionary mapping moment indices to interpolation type symbols.
+- `output_file`: Path to the output NetCDF file.
+- `index_time`: Reference time for the output dataset.
+- `rmin`: Minimum range (meters).
+- `rincr`: Range grid spacing (meters).
+- `rdim`: Number of range grid points.
+- `rhi_zmin`: Minimum altitude (meters).
+- `rhi_zincr`: Vertical grid spacing (meters).
+- `rhi_zdim`: Number of vertical grid points.
+- `beam_inflation`: Factor for inflating the radius of influence with distance from the radar.
+- `power_threshold`: Minimum beam power weight below which a gate is excluded.
+- `missing_key::String`: Moment name used for signal quality gating (default `"SQI"`).
+- `valid_key::String`: Moment name used for valid-data gating (default `"DBZ"`).
+"""
 function grid_radar_rhi(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
         rmin, rincr, rdim, rhi_zmin, rhi_zincr, rhi_zdim, beam_inflation, power_threshold,
         missing_key::String="SQI", valid_key::String="DBZ")
@@ -224,6 +492,32 @@ function grid_radar_rhi(radar_volume, moment_dict, grid_type_dict, output_file, 
     
 end
 
+"""
+    grid_radar_ppi(radar_volume, moment_dict, grid_type_dict, output_file, index_time, xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation, power_threshold, missing_key="SQI", valid_key="DBZ", heading=-9999.0)
+
+Grid a radar PPI (Plan Position Indicator) scan onto a 2D Cartesian grid and write to a NetCDF file.
+
+Initializes a 2D horizontal grid, calls `grid_ppi` for the interpolation, and writes the output
+via `write_gridded_radar_ppi`.
+
+# Arguments
+- `radar_volume`: Radar volume data structure containing the PPI scan.
+- `moment_dict`: Dictionary mapping moment names to integer indices.
+- `grid_type_dict`: Dictionary mapping moment indices to interpolation type symbols.
+- `output_file`: Path to the output NetCDF file.
+- `index_time`: Reference time for the output dataset.
+- `xmin`: Minimum x-coordinate of the grid (meters).
+- `xincr`: Grid spacing in x (meters).
+- `xdim`: Number of grid points in x.
+- `ymin`: Minimum y-coordinate of the grid (meters).
+- `yincr`: Grid spacing in y (meters).
+- `ydim`: Number of grid points in y.
+- `beam_inflation`: Factor for inflating the radius of influence with distance from the radar.
+- `power_threshold`: Minimum beam power weight below which a gate is excluded.
+- `missing_key`: Moment name used for signal quality gating (default `"SQI"`).
+- `valid_key`: Moment name used for valid-data gating (default `"DBZ"`).
+- `heading`: Mean heading of the platform in degrees (default `-9999.0` for missing).
+"""
 function grid_radar_ppi(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
         xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation, power_threshold,
         missing_key="SQI", valid_key="DBZ", heading=-9999.0)
@@ -247,6 +541,31 @@ function grid_radar_ppi(radar_volume, moment_dict, grid_type_dict, output_file, 
     
 end
 
+"""
+    grid_radar_composite(radar_volume, moment_dict, grid_type_dict, output_file, index_time, xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation, missing_key="SQI", valid_key="DBZ", mean_heading=-9999.0)
+
+Grid a radar composite (column-maximum) onto a 2D Cartesian grid and write to a NetCDF file.
+
+Creates a 2D horizontal grid and calls `grid_composite` to select the maximum reflectivity gate
+at each horizontal grid point across all elevations. The output is written via `write_gridded_radar_ppi`.
+
+# Arguments
+- `radar_volume`: Radar volume data structure.
+- `moment_dict`: Dictionary mapping moment names to integer indices.
+- `grid_type_dict`: Dictionary mapping moment indices to interpolation type symbols.
+- `output_file`: Path to the output NetCDF file.
+- `index_time`: Reference time for the output dataset.
+- `xmin`: Minimum x-coordinate of the grid (meters).
+- `xincr`: Grid spacing in x (meters).
+- `xdim`: Number of grid points in x.
+- `ymin`: Minimum y-coordinate of the grid (meters).
+- `yincr`: Grid spacing in y (meters).
+- `ydim`: Number of grid points in y.
+- `beam_inflation`: Factor for inflating the radius of influence with distance from the radar.
+- `missing_key`: Moment name used for signal quality gating (default `"SQI"`).
+- `valid_key`: Moment name used for valid-data gating (default `"DBZ"`).
+- `mean_heading`: Mean heading of the platform in degrees (default `-9999.0` for missing).
+"""
 function grid_radar_composite(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
         xmin, xincr, xdim, ymin, yincr, ydim, beam_inflation,
         missing_key="SQI", valid_key="DBZ", mean_heading=-9999.0)
@@ -270,6 +589,29 @@ function grid_radar_composite(radar_volume, moment_dict, grid_type_dict, output_
     
 end
 
+"""
+    grid_radar_column(radar_volume, moment_dict, grid_type_dict, output_file, index_time, column_zmin, column_zincr, column_zdim, beam_inflation, power_threshold, missing_key="SQI", valid_key="DBZ")
+
+Grid a radar volume into a single vertical column profile and write to a NetCDF file.
+
+Initializes a 1D vertical grid at the radar location, calls `grid_column` for the interpolation,
+and writes the output via `write_gridded_radar_column`. This is useful for extracting a vertical
+profile directly above the radar.
+
+# Arguments
+- `radar_volume`: Radar volume data structure.
+- `moment_dict`: Dictionary mapping moment names to integer indices.
+- `grid_type_dict`: Dictionary mapping moment indices to interpolation type symbols.
+- `output_file`: Path to the output NetCDF file.
+- `index_time`: Reference time for the output dataset.
+- `column_zmin`: Minimum altitude of the column (meters).
+- `column_zincr`: Vertical grid spacing (meters).
+- `column_zdim`: Number of vertical grid points.
+- `beam_inflation`: Factor for inflating the radius of influence with distance from the radar.
+- `power_threshold`: Minimum beam power weight below which a gate is excluded.
+- `missing_key::String`: Moment name used for signal quality gating (default `"SQI"`).
+- `valid_key::String`: Moment name used for valid-data gating (default `"DBZ"`).
+"""
 function grid_radar_column(radar_volume, moment_dict, grid_type_dict, output_file, index_time,
     column_zmin, column_zincr, column_zdim, beam_inflation, power_threshold,
     missing_key::String="SQI", valid_key::String="DBZ")
@@ -293,14 +635,44 @@ function grid_radar_column(radar_volume, moment_dict, grid_type_dict, output_fil
 
 end
 
-function grid_volume(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray, 
+"""
+    grid_volume(reference_latitude, reference_longitude, gridpoints, radar_volume, moment_dict, grid_type_dict, horizontal_roi, vertical_roi, beam_inflation, power_threshold, missing_key="SQI", valid_key="DBZ") -> Tuple{Array{Float64}, Array{Float64}}
+
+Interpolate radar moment data onto a 3D Cartesian grid using beam-weighted averaging.
+
+This is the core gridding engine for 3D volume scans. For each horizontal grid column, a BallTree
+is queried to find nearby radar gates within the radius of influence. Vertical matching is then
+performed, and weights are computed from the spherical angle difference (beam pattern) and range
+ratio. Moments can be interpolated using linear (dBZ-aware), nearest-neighbor, or weighted-average
+schemes as specified by `grid_type_dict`. The function is multithreaded over horizontal grid points.
+
+# Arguments
+- `reference_latitude::AbstractFloat`: Reference latitude for the Transverse Mercator projection (degrees).
+- `reference_longitude::AbstractFloat`: Reference longitude for the Transverse Mercator projection (degrees).
+- `gridpoints::AbstractArray`: 4D grid coordinate array from `initialize_regular_grid`.
+- `radar_volume::radar`: Radar volume data structure.
+- `moment_dict::Dict`: Dictionary mapping moment names to integer indices.
+- `grid_type_dict::Dict`: Dictionary mapping moment indices to interpolation symbols (`:linear`, `:nearest`, or default).
+- `horizontal_roi::Float64`: Horizontal radius of influence (meters).
+- `vertical_roi::Float64`: Vertical radius of influence (meters).
+- `beam_inflation::Float64`: Factor to inflate the radius of influence with distance from the radar.
+- `power_threshold::Float64`: Minimum beam power weight for a gate to contribute.
+- `missing_key::String`: Moment name for signal quality gating (default `"SQI"`).
+- `valid_key::String`: Moment name for valid-data gating (default `"DBZ"`).
+
+# Returns
+A tuple `(radar_grid, latlon_grid)` where:
+- `radar_grid`: A `(n_moments, zdim, ydim, xdim)` array of gridded moment values. Fill value is `-32768.0` (no data), `-9999.0` (in range but QC'd out).
+- `latlon_grid`: A `(ydim, xdim, 2)` array of `[latitude, longitude]` at each horizontal grid point.
+"""
+function grid_volume(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray,
         radar_volume::radar, moment_dict::Dict, grid_type_dict::Dict, horizontal_roi::Float64, vertical_roi::Float64, beam_inflation::Float64,
         power_threshold::Float64, missing_key::String="SQI", valid_key::String="DBZ")
 
     # Convert the relevant radar information to arrays
     TM = CoordRefSystems.shift(TransverseMercator{1.0,reference_latitude,WGS84Latest}, lonₒ= reference_longitude)
     grid_origin, radar_zyx, beams = radar_arrays(reference_latitude, reference_longitude, radar_volume, TM)
-    
+
     # Create a balltree that has horizontal locations of every gate in Y, X dimension
     balltree = radar_balltree_yx(radar_volume, radar_zyx, beams)
 
@@ -464,7 +836,35 @@ function grid_volume(reference_latitude::AbstractFloat, reference_longitude::Abs
     return radar_grid, latlon_grid
 end
 
-function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray, 
+"""
+    grid_rhi(reference_latitude, reference_longitude, gridpoints, radar_volume, moment_dict, grid_type_dict, horizontal_roi, vertical_roi, beam_inflation, power_threshold, missing_key="SQI", valid_key="DBZ") -> Tuple{Array{Float64}, Array{Float64}}
+
+Interpolate radar moment data onto a 2D range-height grid for an RHI scan using beam-weighted averaging.
+
+Similar to `grid_volume`, but operates on a 2D grid in range and altitude rather than 3D Cartesian space.
+A BallTree is constructed on radial distances, and the gridding preserves the RHI azimuth from the scan.
+The function is multithreaded over range grid points.
+
+# Arguments
+- `reference_latitude::AbstractFloat`: Reference latitude for the Transverse Mercator projection (degrees).
+- `reference_longitude::AbstractFloat`: Reference longitude for the Transverse Mercator projection (degrees).
+- `gridpoints::AbstractArray`: 3D grid coordinate array from `initialize_regular_grid` (2D version).
+- `radar_volume::radar`: Radar volume data structure containing the RHI scan.
+- `moment_dict::Dict`: Dictionary mapping moment names to integer indices.
+- `grid_type_dict::Dict`: Dictionary mapping moment indices to interpolation symbols.
+- `horizontal_roi::Float64`: Range radius of influence (meters).
+- `vertical_roi::Float64`: Vertical radius of influence (meters).
+- `beam_inflation::Float64`: Factor to inflate the vertical radius of influence with distance.
+- `power_threshold::Float64`: Minimum beam power weight for a gate to contribute.
+- `missing_key::String`: Moment name for signal quality gating (default `"SQI"`).
+- `valid_key::String`: Moment name for valid-data gating (default `"DBZ"`).
+
+# Returns
+A tuple `(radar_grid, latlon_grid)` where:
+- `radar_grid`: A `(n_moments, zdim, rdim)` array of gridded moment values.
+- `latlon_grid`: An `(rdim, 2)` array of `[latitude, longitude]` along the RHI azimuth.
+"""
+function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray,
         radar_volume::radar, moment_dict::Dict, grid_type_dict::Dict, horizontal_roi::Float64, vertical_roi::Float64, beam_inflation::Float64,
         power_threshold::Float64, missing_key::String="SQI", valid_key::String="DBZ")
 
@@ -639,8 +1039,35 @@ function grid_rhi(reference_latitude::AbstractFloat, reference_longitude::Abstra
     return radar_grid, latlon_grid
 end
 
-function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray, 
-        radar_volume::radar, moment_dict::Dict, grid_type_dict::Dict, horizontal_roi::Float64, beam_inflation::Float64, 
+"""
+    grid_ppi(reference_latitude, reference_longitude, gridpoints, radar_volume, moment_dict, grid_type_dict, horizontal_roi, beam_inflation, power_threshold, missing_key="SQI", valid_key="DBZ") -> Tuple{Array{Float64}, Array{Float64}}
+
+Interpolate radar moment data onto a 2D Cartesian grid for a PPI scan using beam-weighted averaging.
+
+Similar to `grid_volume`, but operates on a 2D horizontal grid for a single elevation scan. Only
+azimuthal angle weighting and range weighting are applied (no vertical matching). The function is
+multithreaded over horizontal grid points.
+
+# Arguments
+- `reference_latitude::AbstractFloat`: Reference latitude for the Transverse Mercator projection (degrees).
+- `reference_longitude::AbstractFloat`: Reference longitude for the Transverse Mercator projection (degrees).
+- `gridpoints::AbstractArray`: 3D grid coordinate array from `initialize_regular_grid` (2D version).
+- `radar_volume::radar`: Radar volume data structure containing the PPI scan.
+- `moment_dict::Dict`: Dictionary mapping moment names to integer indices.
+- `grid_type_dict::Dict`: Dictionary mapping moment indices to interpolation symbols.
+- `horizontal_roi::Float64`: Horizontal radius of influence (meters).
+- `beam_inflation::Float64`: Factor to inflate the radius of influence with distance from the radar.
+- `power_threshold::Float64`: Minimum beam power weight for a gate to contribute.
+- `missing_key::String`: Moment name for signal quality gating (default `"SQI"`).
+- `valid_key::String`: Moment name for valid-data gating (default `"DBZ"`).
+
+# Returns
+A tuple `(radar_grid, latlon_grid)` where:
+- `radar_grid`: A `(n_moments, ydim, xdim)` array of gridded moment values.
+- `latlon_grid`: A `(ydim, xdim, 2)` array of `[latitude, longitude]` at each grid point.
+"""
+function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray,
+        radar_volume::radar, moment_dict::Dict, grid_type_dict::Dict, horizontal_roi::Float64, beam_inflation::Float64,
         power_threshold::Float64, missing_key::String="SQI", valid_key::String="DBZ")
 
     # Convert the relevant radar information to arrays
@@ -781,10 +1208,37 @@ function grid_ppi(reference_latitude::AbstractFloat, reference_longitude::Abstra
     return radar_grid, latlon_grid
 end
 
-function grid_composite(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray, 
+"""
+    grid_composite(reference_latitude, reference_longitude, gridpoints, radar_volume, moment_dict, grid_type_dict, horizontal_roi, beam_inflation, missing_key="SQI", valid_key="DBZ") -> Tuple{Array{Float64}, Array{Float64}}
+
+Create a 2D composite (column-maximum) grid from a radar volume.
+
+For each horizontal grid point, finds all nearby gates via a BallTree query and selects the gate
+with the maximum value of the `valid_key` moment. All moments for that gate are assigned to the
+grid point. This is commonly used to create composite reflectivity maps. The function is multithreaded
+over horizontal grid points.
+
+# Arguments
+- `reference_latitude::AbstractFloat`: Reference latitude for the Transverse Mercator projection (degrees).
+- `reference_longitude::AbstractFloat`: Reference longitude for the Transverse Mercator projection (degrees).
+- `gridpoints::AbstractArray`: 3D grid coordinate array from `initialize_regular_grid` (2D version).
+- `radar_volume::radar`: Radar volume data structure.
+- `moment_dict::Dict`: Dictionary mapping moment names to integer indices.
+- `grid_type_dict::Dict`: Dictionary mapping moment indices to interpolation symbols (not used for composite, but kept for interface consistency).
+- `horizontal_roi::Float64`: Horizontal radius of influence (meters).
+- `beam_inflation::Float64`: Factor to inflate the radius of influence with distance from the radar.
+- `missing_key::String`: Moment name for signal quality gating (default `"SQI"`).
+- `valid_key::String`: Moment name used to find the maximum value gate (default `"DBZ"`).
+
+# Returns
+A tuple `(radar_grid, latlon_grid)` where:
+- `radar_grid`: A `(n_moments, ydim, xdim)` array of composite moment values.
+- `latlon_grid`: A `(ydim, xdim, 2)` array of `[latitude, longitude]` at each grid point.
+"""
+function grid_composite(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray,
         radar_volume::radar, moment_dict::Dict, grid_type_dict::Dict, horizontal_roi::Float64, beam_inflation::Float64,
         missing_key::String="SQI", valid_key::String="DBZ")
-    
+
     # Convert the relevant radar information to arrays
     TM = CoordRefSystems.shift(TransverseMercator{1.0,reference_latitude,WGS84Latest}, lonₒ= reference_longitude)
     grid_origin, radar_zyx, beams = radar_arrays(reference_latitude, reference_longitude, radar_volume, TM)
@@ -852,7 +1306,34 @@ function grid_composite(reference_latitude::AbstractFloat, reference_longitude::
     return radar_grid, latlon_grid
 end
 
-function grid_column(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray, 
+"""
+    grid_column(reference_latitude, reference_longitude, gridpoints, radar_volume, moment_dict, grid_type_dict, vertical_roi, beam_inflation, power_threshold, missing_key="SQI", valid_key="DBZ") -> Tuple{Array{Float64}, Array{Float64}}
+
+Interpolate radar moment data onto a 1D vertical column grid using beam-weighted averaging.
+
+Extracts a vertical profile at the radar location by matching gates vertically using elevation angle
+weighting and range weighting. This is useful for constructing vertical profiles of radar moments
+directly above the radar. The function is multithreaded over vertical grid levels.
+
+# Arguments
+- `reference_latitude::AbstractFloat`: Reference latitude for the Transverse Mercator projection (degrees).
+- `reference_longitude::AbstractFloat`: Reference longitude for the Transverse Mercator projection (degrees).
+- `gridpoints::AbstractArray`: 1D grid coordinate array from `initialize_regular_grid` (1D version).
+- `radar_volume::radar`: Radar volume data structure.
+- `moment_dict::Dict`: Dictionary mapping moment names to integer indices.
+- `grid_type_dict::Dict`: Dictionary mapping moment indices to interpolation symbols.
+- `vertical_roi::Float64`: Vertical radius of influence (meters).
+- `beam_inflation::Float64`: Factor to inflate the vertical radius of influence with altitude.
+- `power_threshold::Float64`: Minimum beam power weight for a gate to contribute.
+- `missing_key::String`: Moment name for signal quality gating (default `"SQI"`).
+- `valid_key::String`: Moment name for valid-data gating (default `"DBZ"`).
+
+# Returns
+A tuple `(radar_grid, latlon_grid)` where:
+- `radar_grid`: A `(n_moments, zdim)` array of gridded moment values.
+- `latlon_grid`: A 2-element array `[latitude, longitude]` of the column location.
+"""
+function grid_column(reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, gridpoints::AbstractArray,
     radar_volume::radar, moment_dict::Dict, grid_type_dict::Dict, vertical_roi::Float64, beam_inflation::Float64,
     power_threshold::Float64, missing_key::String="SQI", valid_key::String="DBZ")
 
@@ -1005,6 +1486,28 @@ function grid_column(reference_latitude::AbstractFloat, reference_longitude::Abs
     return radar_grid, latlon_grid
 end
 
+"""
+    write_gridded_radar_volume(file, index_time, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude, reference_longitude, mean_heading)
+
+Write a gridded 3D radar volume to a CF-1.12 compliant NetCDF file.
+
+Creates a NetCDF file with X, Y, Z dimensions and time, writes grid coordinates, latitude/longitude
+fields, a Transverse Mercator grid mapping variable, heading, and all radar moment variables. Any
+pre-existing file at the output path is deleted first.
+
+# Arguments
+- `file`: Output file path for the NetCDF file.
+- `index_time`: Reference time for the time variable.
+- `start_time`: Start time of the radar volume scan.
+- `stop_time`: Stop time of the radar volume scan.
+- `gridpoints`: 4D grid coordinate array from `initialize_regular_grid`.
+- `radar_grid`: 4D array `(n_moments, zdim, ydim, xdim)` of gridded moment values.
+- `latlon_grid`: 3D array `(ydim, xdim, 2)` of latitude/longitude values.
+- `moment_dict`: Dictionary mapping moment names to integer indices.
+- `reference_latitude::AbstractFloat`: Latitude of the projection origin (degrees).
+- `reference_longitude::AbstractFloat`: Longitude of the projection origin (degrees).
+- `mean_heading::AbstractFloat`: Mean platform heading in degrees.
+"""
 function write_gridded_radar_volume(file, index_time, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, mean_heading::AbstractFloat)
 
     # Delete any pre-existing file
@@ -1140,6 +1643,26 @@ function write_gridded_radar_volume(file, index_time, start_time, stop_time, gri
     close(ds)
 end
 
+"""
+    write_gridded_radar_rhi(file, index_time, radar_volume, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude, reference_longitude)
+
+Write a gridded 2D RHI (range-height) radar scan to a CF-1.12 compliant NetCDF file.
+
+Creates a NetCDF file with R (range) and Z (altitude) dimensions and time, writes grid coordinates,
+latitude/longitude along the RHI azimuth, a Transverse Mercator grid mapping variable, the RHI
+azimuth angle, and all radar moment variables. Any pre-existing file at the output path is deleted first.
+
+# Arguments
+- `file`: Output file path for the NetCDF file.
+- `index_time`: Reference time for the time variable.
+- `radar_volume`: Radar volume data structure (used to extract start/stop times and azimuth).
+- `gridpoints`: 3D grid coordinate array from `initialize_regular_grid` (2D version).
+- `radar_grid`: 3D array `(n_moments, zdim, rdim)` of gridded moment values.
+- `latlon_grid`: 2D array `(rdim, 2)` of latitude/longitude along the RHI.
+- `moment_dict`: Dictionary mapping moment names to integer indices.
+- `reference_latitude::AbstractFloat`: Latitude of the projection origin (degrees).
+- `reference_longitude::AbstractFloat`: Longitude of the projection origin (degrees).
+"""
 function write_gridded_radar_rhi(file, index_time, radar_volume, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat)
 
     # Delete any pre-existing file
@@ -1271,11 +1794,32 @@ function write_gridded_radar_rhi(file, index_time, radar_volume, gridpoints, rad
     close(ds)
 end
 
+"""
+    write_gridded_radar_ppi(file, index_time, radar_volume, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude, reference_longitude, mean_heading)
+
+Write a gridded 2D PPI (plan position indicator) radar scan to a CF-1.12 compliant NetCDF file.
+
+Creates a NetCDF file with X and Y dimensions and time, writes grid coordinates, latitude/longitude
+fields, a Transverse Mercator grid mapping variable, heading, scan name, and all radar moment variables.
+Also used for writing composite grids. Any pre-existing file at the output path is deleted first.
+
+# Arguments
+- `file`: Output file path for the NetCDF file.
+- `index_time`: Reference time for the time variable.
+- `radar_volume`: Radar volume data structure (used to extract start/stop times and scan name).
+- `gridpoints`: 3D grid coordinate array from `initialize_regular_grid` (2D version).
+- `radar_grid`: 3D array `(n_moments, ydim, xdim)` of gridded moment values.
+- `latlon_grid`: 3D array `(ydim, xdim, 2)` of latitude/longitude values.
+- `moment_dict`: Dictionary mapping moment names to integer indices.
+- `reference_latitude::AbstractFloat`: Latitude of the projection origin (degrees).
+- `reference_longitude::AbstractFloat`: Longitude of the projection origin (degrees).
+- `mean_heading::AbstractFloat`: Mean platform heading in degrees.
+"""
 function write_gridded_radar_ppi(file, index_time, radar_volume, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat, mean_heading::AbstractFloat)
 
     # Delete any pre-existing file
     rm(file, force=true)
-    
+
     start_time = radar_volume.time[1]
     stop_time = radar_volume.time[end]
     scan_name = radar_volume.scan_name
@@ -1402,6 +1946,27 @@ function write_gridded_radar_ppi(file, index_time, radar_volume, gridpoints, rad
     close(ds)
 end
 
+"""
+    write_gridded_radar_column(file, index_time, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude, reference_longitude)
+
+Write a gridded 1D vertical column profile to a CF-1.12 compliant NetCDF file.
+
+Creates a NetCDF file with Z (altitude) dimension and time, writes the vertical grid coordinates,
+latitude/longitude of the column location, a Transverse Mercator grid mapping variable, and all
+radar moment variables. Any pre-existing file at the output path is deleted first.
+
+# Arguments
+- `file`: Output file path for the NetCDF file.
+- `index_time`: Reference time for the time variable.
+- `start_time`: Start time of the radar volume scan.
+- `stop_time`: Stop time of the radar volume scan.
+- `gridpoints`: 1D grid coordinate array from `initialize_regular_grid` (1D version).
+- `radar_grid`: 2D array `(n_moments, zdim)` of gridded moment values.
+- `latlon_grid`: 2-element array `[latitude, longitude]` of the column location.
+- `moment_dict`: Dictionary mapping moment names to integer indices.
+- `reference_latitude::AbstractFloat`: Latitude of the column location (degrees).
+- `reference_longitude::AbstractFloat`: Longitude of the column location (degrees).
+"""
 function write_gridded_radar_column(file, index_time, start_time, stop_time, gridpoints, radar_grid, latlon_grid, moment_dict, reference_latitude::AbstractFloat, reference_longitude::AbstractFloat)
 
     # Delete any pre-existing file
@@ -1509,6 +2074,24 @@ function write_gridded_radar_column(file, index_time, start_time, stop_time, gri
     close(ds)
 end
 
+"""
+    read_latlon_gridded_radar(file, moment_dict) -> Tuple
+
+Read a gridded radar dataset from a NetCDF file with legacy lat/lon grid format.
+
+Opens the specified NetCDF file and reads the `x0`, `y0`, `z0` coordinate arrays, time bounds,
+and all radar moment data specified in `moment_dict`.
+
+# Arguments
+- `file`: Path to the input NetCDF file.
+- `moment_dict`: Dictionary mapping moment names (e.g., `"DBZ"`) to integer indices.
+
+# Returns
+A tuple `(x0, y0, z0, start_time, stop_time, radardata)` where:
+- `x0`, `y0`, `z0`: Coordinate arrays from the file.
+- `start_time`, `stop_time`: Time bounds of the data.
+- `radardata`: A `(n_moments, n_points)` array of `Union{Missing, Float32}` moment values.
+"""
 function read_latlon_gridded_radar(file, moment_dict)
 
     inputds = Dataset(file);
@@ -1530,6 +2113,25 @@ function read_latlon_gridded_radar(file, moment_dict)
     return x0, y0, z0, start_time, stop_time, radardata
 end
 
+"""
+    read_cartesian_gridded_radar(file, moment_dict) -> Tuple
+
+Read a gridded radar dataset from a NetCDF file with legacy Cartesian grid format.
+
+Opens the specified NetCDF file and reads the `x0`, `y0`, `z0` coordinate arrays, `lat0`/`lon0`
+geographic coordinates, time bounds, and all radar moment data specified in `moment_dict`.
+
+# Arguments
+- `file`: Path to the input NetCDF file.
+- `moment_dict`: Dictionary mapping moment names (e.g., `"DBZ"`) to integer indices.
+
+# Returns
+A tuple `(x0, y0, z0, lat0, lon0, start_time, stop_time, radardata)` where:
+- `x0`, `y0`, `z0`: Cartesian coordinate arrays from the file.
+- `lat0`, `lon0`: Geographic coordinate arrays from the file.
+- `start_time`, `stop_time`: Time bounds of the data.
+- `radardata`: A `(n_moments, n_points)` array of `Union{Missing, Float32}` moment values.
+"""
 function read_cartesian_gridded_radar(file, moment_dict)
 
     inputds = Dataset(file);
@@ -1553,6 +2155,25 @@ function read_cartesian_gridded_radar(file, moment_dict)
     return x0, y0, z0, lat0, lon0, start_time, stop_time, radardata
 end
 
+"""
+    read_gridded_radar(file, moment_dict) -> Tuple
+
+Read a gridded 3D radar volume from a NetCDF file with X, Y, Z coordinates.
+
+Opens the specified NetCDF file and reads the `X`, `Y`, `Z` coordinate arrays, `latitude`/`longitude`
+fields, time bounds, and all radar moment data specified in `moment_dict`.
+
+# Arguments
+- `file`: Path to the input NetCDF file.
+- `moment_dict`: Dictionary mapping moment names (e.g., `"DBZ"`) to integer indices.
+
+# Returns
+A tuple `(x, y, z, lat, lon, start_time, stop_time, radardata)` where:
+- `x`, `y`, `z`: Coordinate arrays from the file (meters).
+- `lat`, `lon`: 2D latitude and longitude arrays.
+- `start_time`, `stop_time`: Time bounds of the data.
+- `radardata`: A `(n_moments, n_points)` array of `Union{Missing, Float32}` moment values.
+"""
 function read_gridded_radar(file, moment_dict)
 
     inputds = Dataset(file);
@@ -1576,6 +2197,25 @@ function read_gridded_radar(file, moment_dict)
     return x, y, z, lat, lon, start_time, stop_time, radardata
 end
 
+"""
+    read_gridded_ppi(file, moment_dict) -> Tuple
+
+Read a gridded 2D PPI radar scan from a NetCDF file with X, Y coordinates.
+
+Opens the specified NetCDF file and reads the `X`, `Y` coordinate arrays, `latitude`/`longitude`
+fields, time bounds, and all radar moment data specified in `moment_dict`.
+
+# Arguments
+- `file`: Path to the input NetCDF file.
+- `moment_dict`: Dictionary mapping moment names (e.g., `"DBZ"`) to integer indices.
+
+# Returns
+A tuple `(x, y, lat, lon, start_time, stop_time, radardata)` where:
+- `x`, `y`: Coordinate arrays from the file (meters).
+- `lat`, `lon`: 2D latitude and longitude arrays.
+- `start_time`, `stop_time`: Time bounds of the data.
+- `radardata`: A `(n_moments, n_points)` array of `Union{Missing, Float32}` moment values.
+"""
 function read_gridded_ppi(file, moment_dict)
 
     inputds = Dataset(file);
@@ -1598,6 +2238,26 @@ function read_gridded_ppi(file, moment_dict)
     return x, y, lat, lon, start_time, stop_time, radardata
 end
 
+"""
+    read_gridded_rhi(file, moment_dict) -> Tuple
+
+Read a gridded 2D RHI radar scan from a NetCDF file with R (range) and Z (altitude) coordinates.
+
+Opens the specified NetCDF file and reads the `R`, `Z` coordinate arrays, `latitude`/`longitude`
+fields along the RHI azimuth, time bounds, and all radar moment data specified in `moment_dict`.
+
+# Arguments
+- `file`: Path to the input NetCDF file.
+- `moment_dict`: Dictionary mapping moment names (e.g., `"DBZ"`) to integer indices.
+
+# Returns
+A tuple `(R, Z, lat, lon, start_time, stop_time, radardata)` where:
+- `R`: Range coordinate array (meters).
+- `Z`: Altitude coordinate array (meters).
+- `lat`, `lon`: Latitude and longitude arrays along the RHI azimuth.
+- `start_time`, `stop_time`: Time bounds of the data.
+- `radardata`: A `(n_moments, n_points)` array of `Union{Missing, Float32}` moment values.
+"""
 function read_gridded_rhi(file, moment_dict)
 
     inputds = Dataset(file);

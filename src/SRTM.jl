@@ -1,7 +1,25 @@
 using Rasters, ArchGDAL, Printf
 
 """
-Read NASA SRTM .hgt file and get elevation at specified latitude/longitude using Rasters.jl
+    read_srtm_elevation_rasters(filename::String, lat::Float64, lon::Float64) -> Union{Float64, Nothing}
+
+Read a NASA SRTM `.hgt` file and extract the elevation at a specified latitude and longitude
+using Rasters.jl.
+
+The SRTM file is loaded as a raster in WGS84 geographic coordinates, and the nearest-neighbor
+elevation value is returned. Void data values (`-32768` or `missing`) return `nothing`.
+
+# Arguments
+- `filename::String`: Path to an SRTM `.hgt` file.
+- `lat::Float64`: Latitude in decimal degrees (positive north).
+- `lon::Float64`: Longitude in decimal degrees (positive east).
+
+# Returns
+- `Float64`: Elevation in meters at the specified coordinates.
+- `nothing`: If the elevation data is missing or void at the location.
+
+# Throws
+- `ErrorException`: If the coordinates are outside the raster bounds.
 """
 function read_srtm_elevation_rasters(filename::String, lat::Float64, lon::Float64)
     try
@@ -30,7 +48,22 @@ function read_srtm_elevation_rasters(filename::String, lat::Float64, lon::Float6
 end
 
 """
-Read multiple SRTM tiles and get elevation for coordinates that might span tiles
+    read_srtm_elevation_multi(tile_directory::String, lat::Float64, lon::Float64) -> Union{Float64, Nothing}
+
+Look up terrain elevation from SRTM tiles stored in a directory for a given latitude and longitude.
+
+The appropriate SRTM tile filename is automatically determined from the coordinates using standard
+naming conventions (e.g., `N16W025.hgt`). If the tile file does not exist, ocean is assumed and
+`nothing` is returned.
+
+# Arguments
+- `tile_directory::String`: Path to directory containing SRTM `.hgt` tile files.
+- `lat::Float64`: Latitude in decimal degrees (positive north).
+- `lon::Float64`: Longitude in decimal degrees (positive east).
+
+# Returns
+- `Float64`: Elevation in meters at the specified coordinates.
+- `nothing`: If the tile is missing (assumed ocean) or elevation data is void.
 """
 function read_srtm_elevation_multi(tile_directory::String, lat::Float64, lon::Float64)
     # Generate the expected tile name based on coordinates
@@ -60,9 +93,24 @@ function read_srtm_elevation_multi(tile_directory::String, lat::Float64, lon::Fl
     return read_srtm_elevation_rasters(tile_path, lat, lon)
 end
 
-# Single point elevation lookup example
+"""
+    terrain_height(tile_directory::String, latitude::Float64, longitude::Float64) -> Float64
+
+Look up terrain elevation at a single geographic point from SRTM tiles stored on disk.
+
+Loads the appropriate SRTM tile from the specified directory and returns the elevation.
+Returns `-1.0` if no elevation data is available (e.g., over ocean) or if an error occurs.
+
+# Arguments
+- `tile_directory::String`: Path to directory containing SRTM `.hgt` tile files.
+- `latitude::Float64`: Latitude in decimal degrees (positive north).
+- `longitude::Float64`: Longitude in decimal degrees (positive east).
+
+# Returns
+- `Float64`: Elevation in meters, or `-1.0` if data is unavailable or an error occurs.
+"""
 function terrain_height(tile_directory::String, latitude::Float64, longitude::Float64)
-    
+
     try
         elevation = read_srtm_elevation_multi(tile_directory, latitude, longitude)
         if elevation === nothing
@@ -74,12 +122,30 @@ function terrain_height(tile_directory::String, latitude::Float64, longitude::Fl
         end
     catch e
         println("Error: $e")
+        return -1.0
     end
 end
 
-# Get elevation using pre-loaded tiles dictionary
+"""
+    terrain_height(tiles::Dict{String, Raster}, latitude::Float64, longitude::Float64) -> Float64
+
+Look up terrain elevation at a single geographic point using a pre-loaded dictionary of SRTM
+raster tiles.
+
+This method avoids repeated disk I/O by using tiles already loaded into memory via
+[`read_srtm_elevation_multi(tile_directory)`](@ref). Returns `-1.0` if no elevation data is
+available or if an error occurs.
+
+# Arguments
+- `tiles::Dict{String, Raster}`: Dictionary mapping tile name strings (e.g., `"N16W025"`) to loaded `Raster` objects.
+- `latitude::Float64`: Latitude in decimal degrees (positive north).
+- `longitude::Float64`: Longitude in decimal degrees (positive east).
+
+# Returns
+- `Float64`: Elevation in meters, or `-1.0` if data is unavailable or an error occurs.
+"""
 function terrain_height(tiles::Dict{String, Raster}, latitude::Float64, longitude::Float64)
-    
+
     try
         elevation = read_srtm_elevation_dict(tiles, latitude, longitude)
         if elevation === nothing
@@ -91,9 +157,25 @@ function terrain_height(tiles::Dict{String, Raster}, latitude::Float64, longitud
         end
     catch e
         println("Error: $e")
+        return -1.0
     end
 end
 
+"""
+    read_srtm_elevation_multi(tile_directory::String) -> Dict{String, Raster}
+
+Load all SRTM `.hgt` tile files from a directory into memory as a dictionary of `Raster` objects.
+
+Each tile is keyed by its base name without extension (e.g., `"N16W025"`). The returned
+dictionary can be passed to [`terrain_height(tiles, lat, lon)`](@ref) for efficient repeated
+lookups without disk I/O.
+
+# Arguments
+- `tile_directory::String`: Path to directory containing SRTM `.hgt` tile files.
+
+# Returns
+- `Dict{String, Raster}`: Dictionary mapping tile name strings to loaded `Raster` objects.
+"""
 function read_srtm_elevation_multi(tile_directory::String)
 
     # Load in all the tiles in the directory
@@ -106,6 +188,26 @@ function read_srtm_elevation_multi(tile_directory::String)
     return tiles
 end
 
+"""
+    read_srtm_elevation_rasters(raster_dem::Raster, lat::Float64, lon::Float64) -> Union{Float64, Nothing}
+
+Extract the elevation at a specified latitude and longitude from an already-loaded SRTM `Raster` object.
+
+This method avoids re-reading the file from disk by accepting a pre-loaded `Raster`. The
+nearest-neighbor elevation value is returned. Void data values (`-32768` or `missing`) return `nothing`.
+
+# Arguments
+- `raster_dem::Raster`: A pre-loaded SRTM raster in WGS84 geographic coordinates.
+- `lat::Float64`: Latitude in decimal degrees (positive north).
+- `lon::Float64`: Longitude in decimal degrees (positive east).
+
+# Returns
+- `Float64`: Elevation in meters at the specified coordinates.
+- `nothing`: If the elevation data is missing or void at the location.
+
+# Throws
+- `ErrorException`: If the coordinates are outside the raster bounds.
+"""
 function read_srtm_elevation_rasters(raster_dem::Raster, lat::Float64, lon::Float64)
 
     try
@@ -130,6 +232,24 @@ function read_srtm_elevation_rasters(raster_dem::Raster, lat::Float64, lon::Floa
     end
 end
 
+"""
+    read_srtm_elevation_dict(tiles::Dict{String, Raster}, lat::Float64, lon::Float64) -> Union{Float64, Nothing}
+
+Look up terrain elevation from a pre-loaded dictionary of SRTM raster tiles.
+
+The appropriate tile name is determined from the coordinates using standard SRTM naming
+conventions. If the tile is not present in the dictionary, ocean is assumed and `nothing` is
+returned.
+
+# Arguments
+- `tiles::Dict{String, Raster}`: Dictionary mapping tile name strings (e.g., `"N16W025"`) to loaded `Raster` objects.
+- `lat::Float64`: Latitude in decimal degrees (positive north).
+- `lon::Float64`: Longitude in decimal degrees (positive east).
+
+# Returns
+- `Float64`: Elevation in meters at the specified coordinates.
+- `nothing`: If the tile is not in the dictionary (assumed ocean) or elevation data is void.
+"""
 function read_srtm_elevation_dict(tiles::Dict{String, Raster}, lat::Float64, lon::Float64)
     # Generate the expected tile name based on coordinates
     lat_char = lat >= 0 ? 'N' : 'S'
