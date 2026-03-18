@@ -26,6 +26,7 @@ jobs:
         shell: julia --color=yes --project=docs {0}
         run: |
           using Pkg
+          Pkg.develop(url="https://github.com/csu-tropical/Springsteel.jl")
           Pkg.develop(PackageSpec(path=pwd()))
           Pkg.instantiate()
       - name: Build and deploy
